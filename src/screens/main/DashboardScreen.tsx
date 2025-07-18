@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,14 @@ export default function DashboardScreen() {
   const todaysPlan = sampleMealPlans[0]; // Use first sample plan
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnimation = useRef(new Animated.Value(1)).current;
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
+    // Update time every minute
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
     // Pulse animation for nutrition cards
     const pulse = Animated.loop(
       Animated.sequence([
@@ -46,8 +52,27 @@ export default function DashboardScreen() {
     );
     pulse.start();
 
-    return () => pulse.stop();
+    return () => {
+      pulse.stop();
+      clearInterval(timer);
+    };
   }, []);
+
+  const getTimeBasedGreeting = () => {
+    const hour = currentTime.getHours();
+    
+    if (hour >= 5 && hour < 12) {
+      return { greeting: 'Good Morning!', subtitle: 'Ready for a nutritious day?', icon: 'sunny' };
+    } else if (hour >= 12 && hour < 17) {
+      return { greeting: 'Good Afternoon!', subtitle: 'How about a healthy lunch?', icon: 'partly-sunny' };
+    } else if (hour >= 17 && hour < 21) {
+      return { greeting: 'Good Evening!', subtitle: 'Time for dinner planning?', icon: 'cloudy' };
+    } else {
+      return { greeting: 'Good Night!', subtitle: 'Planning tomorrow\'s meals?', icon: 'moon' };
+    }
+  };
+
+  const { greeting, subtitle, icon } = getTimeBasedGreeting();
 
   const handleOrderOnGrubhub = () => {
     const grubhubUrl = 'https://www.grubhub.com/restaurant/ohio-state-university-dining/';
@@ -161,8 +186,8 @@ export default function DashboardScreen() {
           end={{ x: 1, y: 1 }}
         >
           <Animatable.View animation="slideInDown" duration={800}>
-            <Text style={styles.greeting}>Good Morning!</Text>
-            <Text style={styles.subtitle}>Ready for a nutritious day?</Text>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
           </Animatable.View>
           
           {/* Floating elements */}
@@ -171,7 +196,7 @@ export default function DashboardScreen() {
             delay={600}
             style={styles.floatingIcon}
           >
-            <Ionicons name="nutrition" size={40} color="rgba(255,255,255,0.2)" />
+            <Ionicons name={icon as any} size={40} color="rgba(255,255,255,0.2)" />
           </Animatable.View>
         </LinearGradient>
       </Animated.View>
@@ -367,10 +392,10 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.xl,
-    paddingTop: SPACING.xxl + 20,
+    paddingTop: SPACING.xxl + 40,
     borderBottomLeftRadius: BORDER_RADIUS.xl,
     borderBottomRightRadius: BORDER_RADIUS.xl,
-    minHeight: 140,
+    minHeight: 180,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -392,7 +417,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: 140, // Height of the header
+    marginTop: 180, // Height of the header
   },
   section: {
     padding: SPACING.lg,

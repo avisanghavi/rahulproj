@@ -17,6 +17,7 @@ import MenuBrowserScreen from '../screens/main/MenuBrowserScreen';
 import BrutusAIScreen from '../screens/main/BrutusAIScreen';
 import MealPlannerScreen from '../screens/main/MealPlannerScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import Footer from '../components/Footer';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -26,45 +27,46 @@ const DEMO_MODE = true;
 
 function TabNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName: keyof typeof Ionicons.glyphMap;
 
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'MenuBrowser') {
-            iconName = focused ? 'restaurant' : 'restaurant-outline';
-          } else if (route.name === 'BrutusAI') {
-            iconName = focused ? 'chatbox-ellipses' : 'chatbox-ellipses-outline';
-          } else if (route.name === 'MealPlanner') {
-            iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          } else {
-            iconName = 'ellipse-outline';
-          }
+            if (route.name === 'Dashboard') {
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'MenuBrowser') {
+              iconName = focused ? 'restaurant' : 'restaurant-outline';
+            } else if (route.name === 'BrutusAI') {
+              iconName = focused ? 'chatbox-ellipses' : 'chatbox-ellipses-outline';
+            } else if (route.name === 'MealPlanner') {
+              iconName = focused ? 'calendar' : 'calendar-outline';
+            } else if (route.name === 'Profile') {
+              iconName = focused ? 'person' : 'person-outline';
+            } else {
+              iconName = 'ellipse-outline';
+            }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarStyle: {
-          backgroundColor: COLORS.background,
-          borderTopColor: COLORS.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        headerStyle: {
-          backgroundColor: COLORS.primary,
-        },
-        headerTintColor: COLORS.background,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      })}
-    >
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: COLORS.primary,
+          tabBarInactiveTintColor: COLORS.textSecondary,
+          tabBarStyle: {
+            backgroundColor: COLORS.background,
+            borderTopColor: COLORS.border,
+            height: 70,
+            paddingBottom: 12,
+            paddingTop: 8,
+          },
+          headerStyle: {
+            backgroundColor: COLORS.primary,
+          },
+          headerTintColor: COLORS.background,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        })}
+      >
       <Tab.Screen 
         name="Dashboard" 
         component={DashboardScreen}
@@ -91,6 +93,8 @@ function TabNavigator() {
         options={{ title: 'Profile' }}
       />
     </Tab.Navigator>
+    <Footer />
+    </View>
   );
 }
 
