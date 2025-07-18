@@ -17,7 +17,6 @@ import MenuBrowserScreen from '../screens/main/MenuBrowserScreen';
 import BrutusAIScreen from '../screens/main/BrutusAIScreen';
 import MealPlannerScreen from '../screens/main/MealPlannerScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
-import Footer from '../components/Footer';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -53,10 +52,13 @@ function TabNavigator() {
           tabBarInactiveTintColor: COLORS.textSecondary,
           tabBarStyle: {
             backgroundColor: COLORS.background,
-            borderTopColor: COLORS.border,
-            height: 70,
-            paddingBottom: 12,
-            paddingTop: 8,
+            borderTopColor: COLORS.primary,
+            borderTopWidth: 3,
+            height: 60,
+            paddingBottom: 8,
+            paddingTop: 6,
+            position: 'absolute',
+            bottom: 0,
           },
           headerStyle: {
             backgroundColor: COLORS.primary,
@@ -93,7 +95,6 @@ function TabNavigator() {
         options={{ title: 'Profile' }}
       />
     </Tab.Navigator>
-    <Footer />
     </View>
   );
 }

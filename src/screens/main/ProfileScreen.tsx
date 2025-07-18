@@ -21,13 +21,15 @@ export default function ProfileScreen() {
     email: 'john.buckeye@osu.edu',
     year: 'sophomore',
     major: 'Computer Science',
-    diningPlan: 'unlimited',
+    diningPlan: 'scarlet_14',
     calorieGoal: 2000,
     budget: 25,
+    customBudget: '',
     fitnessGoal: 'maintain',
     activityLevel: 'moderate',
     dietaryRestrictions: ['vegetarian'],
     allergens: [],
+    customAllergens: [],
     preferredLocations: ['Traditions at Scott', 'Union Market', 'Courtside Cafe'],
     mealPreferences: {
       breakfast: 'light',
@@ -42,6 +44,7 @@ export default function ProfileScreen() {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showDiningPlanModal, setShowDiningPlanModal] = useState(false);
   const [showUserInfoModal, setShowUserInfoModal] = useState(false);
+  const [customAllergenInput, setCustomAllergenInput] = useState('');
 
   const fitnessGoals = [
     { id: 'lose_weight', label: 'Lose Weight', icon: 'trending-down', description: 'Reduce body weight gradually' },
@@ -62,44 +65,44 @@ export default function ProfileScreen() {
 
   const diningPlans = [
     { 
-      id: 'unlimited', 
-      name: 'Unlimited Plan', 
-      description: 'Unlimited access to all-you-care-to-eat dining halls',
-      price: '$2,890/semester',
-      swipes: 'Unlimited',
+      id: 'scarlet_14', 
+      name: 'Scarlet 14', 
+      description: '14 meals per week with maximum flexibility',
+      price: '$2,750/semester',
+      swipes: '14 per week',
+      buckId: '$250'
+    },
+    { 
+      id: 'gray_10', 
+      name: 'Gray 10', 
+      description: '10 meals per week for lighter eaters',
+      price: '$2,350/semester',
+      swipes: '10 per week',
       buckId: '$300'
     },
     { 
-      id: 'block_230', 
-      name: 'Block 230', 
-      description: '230 meals per semester with flexibility',
-      price: '$2,695/semester',
-      swipes: '230 per semester',
-      buckId: '$350'
+      id: 'traditions', 
+      name: 'Traditions', 
+      description: 'All-access dining hall plan',
+      price: '$2,890/semester',
+      swipes: 'Unlimited',
+      buckId: '$200'
     },
     { 
-      id: 'block_160', 
-      name: 'Block 160', 
-      description: '160 meals per semester',
-      price: '$2,295/semester',
-      swipes: '160 per semester',
+      id: 'carmen_1', 
+      name: 'Carmen 1', 
+      description: 'High-value block plan for upperclassmen',
+      price: '$1,995/semester',
+      swipes: '165 per semester',
       buckId: '$400'
     },
     { 
-      id: 'block_80', 
-      name: 'Block 80', 
-      description: '80 meals per semester',
+      id: 'carmen_2', 
+      name: 'Carmen 2', 
+      description: 'Flexible block plan for light eaters',
       price: '$1,495/semester',
-      swipes: '80 per semester',
-      buckId: '$500'
-    },
-    { 
-      id: 'off_campus', 
-      name: 'Off-Campus Plan', 
-      description: 'Flexible plan for off-campus students',
-      price: '$500-1,500/semester',
-      swipes: 'Variable',
-      buckId: '$200-800'
+      swipes: '110 per semester',
+      buckId: '$350'
     },
   ];
 
@@ -120,6 +123,23 @@ export default function ProfileScreen() {
   const allergenOptions = [
     'nuts', 'dairy', 'eggs', 'soy', 'wheat', 'fish', 'shellfish', 'sesame'
   ];
+
+  const addCustomAllergen = () => {
+    if (customAllergenInput.trim() && !userProfile.customAllergens.includes(customAllergenInput.trim())) {
+      setUserProfile({
+        ...userProfile, 
+        customAllergens: [...userProfile.customAllergens, customAllergenInput.trim()]
+      });
+      setCustomAllergenInput('');
+    }
+  };
+
+  const removeCustomAllergen = (allergen: string) => {
+    setUserProfile({
+      ...userProfile,
+      customAllergens: userProfile.customAllergens.filter(a => a !== allergen)
+    });
+  };
 
   const diningLocations = [
     'Traditions at Scott',
@@ -212,6 +232,22 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            
+            <Text style={styles.customBudgetLabel}>Or enter custom amount:</Text>
+            <TextInput
+              style={styles.customBudgetInput}
+              placeholder="Enter amount (e.g., 27.50)"
+              value={userProfile.customBudget}
+              onChangeText={(text) => {
+                setUserProfile({...userProfile, customBudget: text});
+                const amount = parseFloat(text);
+                if (!isNaN(amount) && amount > 0) {
+                  setUserProfile(prev => ({...prev, customBudget: text, budget: amount}));
+                }
+              }}
+              keyboardType="numeric"
+              placeholderTextColor={COLORS.textSecondary}
+            />
           </View>
           
           <TouchableOpacity
@@ -448,20 +484,20 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 key={level.id}
                 style={[
-                  styles.goalOption,
-                  userProfile.activityLevel === level.id && styles.selectedGoal,
+                  styles.activityLevelOption,
+                  userProfile.activityLevel === level.id && styles.selectedActivityLevel,
                 ]}
                 onPress={() => setUserProfile({...userProfile, activityLevel: level.id})}
               >
                 <Text style={[
-                  styles.goalText,
-                  userProfile.activityLevel === level.id && styles.selectedGoalText
+                  styles.activityLevelTitle,
+                  userProfile.activityLevel === level.id && styles.selectedActivityLevelTitle
                 ]}>
                   {level.label}
                 </Text>
                 <Text style={[
-                  styles.goalDescription,
-                  userProfile.activityLevel === level.id && styles.selectedGoalDescription
+                  styles.activityLevelDescription,
+                  userProfile.activityLevel === level.id && styles.selectedActivityLevelDescription
                 ]}>
                   {level.description}
                 </Text>
@@ -529,6 +565,43 @@ export default function ProfileScreen() {
             ))}
           </View>
 
+          <Text style={styles.customAllergenLabel}>Add Custom Allergen:</Text>
+          <View style={styles.customAllergenContainer}>
+            <TextInput
+              style={styles.customAllergenInput}
+              placeholder="Enter allergen (e.g., coconut)"
+              value={customAllergenInput}
+              onChangeText={setCustomAllergenInput}
+              onSubmitEditing={addCustomAllergen}
+              placeholderTextColor={COLORS.textSecondary}
+            />
+            <TouchableOpacity 
+              style={styles.addAllergenButton}
+              onPress={addCustomAllergen}
+            >
+              <Ionicons name="add" size={20} color={COLORS.background} />
+            </TouchableOpacity>
+          </View>
+
+          {userProfile.customAllergens.length > 0 && (
+            <>
+              <Text style={styles.customAllergensTitle}>Your Custom Allergens:</Text>
+              <View style={styles.customAllergensGrid}>
+                {userProfile.customAllergens.map((allergen, index) => (
+                  <View key={index} style={styles.customAllergenCard}>
+                    <Text style={styles.customAllergenCardText}>{allergen}</Text>
+                    <TouchableOpacity 
+                      style={styles.removeAllergenButton}
+                      onPress={() => removeCustomAllergen(allergen)}
+                    >
+                      <Ionicons name="close" size={16} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
           <Text style={styles.subSectionTitle}>Health Goals</Text>
           <View style={styles.healthGoalsGrid}>
             {healthGoals.map((goal) => (
@@ -563,34 +636,53 @@ export default function ProfileScreen() {
 
         {/* Preferred Dining Locations */}
         <ProfileSection title="Preferred Dining Locations">
+          <Text style={styles.locationLimitText}>
+            Select up to 5 dining locations ({userProfile.preferredLocations.length}/5)
+          </Text>
           <View style={styles.locationsGrid}>
-            {diningLocations.map((location) => (
-              <TouchableOpacity
-                key={location}
-                style={[
-                  styles.locationOption,
-                  userProfile.preferredLocations.includes(location) && styles.selectedLocation,
-                ]}
-                onPress={() => {
-                  const newLocations = userProfile.preferredLocations.includes(location)
-                    ? userProfile.preferredLocations.filter(l => l !== location)
-                    : [...userProfile.preferredLocations, location];
-                  setUserProfile({...userProfile, preferredLocations: newLocations});
-                }}
-              >
-                <Ionicons 
-                  name="restaurant" 
-                  size={16} 
-                  color={userProfile.preferredLocations.includes(location) ? COLORS.background : COLORS.primary} 
-                />
-                <Text style={[
-                  styles.locationName,
-                  userProfile.preferredLocations.includes(location) && styles.selectedLocationText
-                ]}>
-                  {location.replace('Traditions at ', '').replace(' at Scott', '')}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {diningLocations.map((location) => {
+              const isSelected = userProfile.preferredLocations.includes(location);
+              const canSelect = userProfile.preferredLocations.length < 5 || isSelected;
+              
+              return (
+                <TouchableOpacity
+                  key={location}
+                  style={[
+                    styles.locationOption,
+                    isSelected && styles.selectedLocation,
+                    !canSelect && styles.disabledLocation,
+                  ]}
+                  onPress={() => {
+                    if (!canSelect && !isSelected) return;
+                    
+                    const newLocations = isSelected
+                      ? userProfile.preferredLocations.filter(l => l !== location)
+                      : [...userProfile.preferredLocations, location];
+                    setUserProfile({...userProfile, preferredLocations: newLocations});
+                  }}
+                  disabled={!canSelect && !isSelected}
+                >
+                  <Ionicons 
+                    name="restaurant" 
+                    size={16} 
+                    color={
+                      isSelected 
+                        ? COLORS.background 
+                        : !canSelect 
+                        ? COLORS.textLight 
+                        : COLORS.primary
+                    } 
+                  />
+                  <Text style={[
+                    styles.locationName,
+                    isSelected && styles.selectedLocationText,
+                    !canSelect && styles.disabledLocationText,
+                  ]}>
+                    {location.replace('Traditions at ', '').replace(' at Scott', '')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ProfileSection>
 
@@ -675,7 +767,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     padding: SPACING.xl,
-    paddingTop: SPACING.xxl + 20,
+    paddingTop: SPACING.lg,
   },
   avatarContainer: {
     width: 80,
@@ -787,6 +879,36 @@ const styles = StyleSheet.create({
   activityLevels: {
     marginBottom: SPACING.lg,
   },
+  activityLevelOption: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedActivityLevel: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  activityLevelTitle: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  selectedActivityLevelTitle: {
+    color: COLORS.background,
+  },
+  activityLevelDescription: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  selectedActivityLevelDescription: {
+    color: COLORS.background,
+    opacity: 0.9,
+  },
   dietaryOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -837,6 +959,69 @@ const styles = StyleSheet.create({
   },
   selectedAllergenText: {
     color: COLORS.background,
+  },
+  customAllergenLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+    fontWeight: '600',
+  },
+  customAllergenContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  customAllergenInput: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: SPACING.sm,
+  },
+  addAllergenButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customAllergensTitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    fontWeight: '600',
+  },
+  customAllergensGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: SPACING.lg,
+  },
+  customAllergenCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '20',
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginRight: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  customAllergenCardText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.error,
+    fontWeight: '500',
+    marginRight: SPACING.xs,
+  },
+  removeAllergenButton: {
+    padding: SPACING.xs,
   },
   healthGoalsGrid: {
     flexDirection: 'row',
@@ -897,6 +1082,20 @@ const styles = StyleSheet.create({
   },
   selectedLocationText: {
     color: COLORS.background,
+  },
+  locationLimitText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  disabledLocation: {
+    opacity: 0.5,
+    backgroundColor: COLORS.surface,
+  },
+  disabledLocationText: {
+    color: COLORS.textLight,
   },
   settingItem: {
     flexDirection: 'row',
@@ -1025,6 +1224,23 @@ const styles = StyleSheet.create({
   },
   selectedBudgetOptionText: {
     color: COLORS.background,
+  },
+  customBudgetLabel: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  customBudgetInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    textAlign: 'center',
   },
   // Dining plan modal styles
   diningPlansContainer: {

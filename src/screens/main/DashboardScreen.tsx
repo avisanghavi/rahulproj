@@ -392,10 +392,10 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.xl,
-    paddingTop: SPACING.xxl + 40,
+    paddingTop: SPACING.lg,
     borderBottomLeftRadius: BORDER_RADIUS.xl,
     borderBottomRightRadius: BORDER_RADIUS.xl,
-    minHeight: 180,
+    minHeight: 120,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: 180, // Height of the header
+    marginTop: 120, // Height of the header
   },
   section: {
     padding: SPACING.lg,
