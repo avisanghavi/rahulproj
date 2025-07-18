@@ -25,6 +25,7 @@ export default function ProfileScreen() {
     calorieGoal: 2000,
     budget: 25,
     customBudget: '',
+    dailySwipes: 2,
     fitnessGoal: 'maintain',
     activityLevel: 'moderate',
     dietaryRestrictions: ['vegetarian'],
@@ -213,6 +214,40 @@ export default function ProfileScreen() {
           
           <View style={styles.budgetSliderContainer}>
             <Text style={styles.budgetLabel}>Daily Budget: ${userProfile.budget}</Text>
+            
+            {/* Show swipe options for Scarlet 14 and Gray 10 users */}
+            {(userProfile.diningPlan === 'scarlet_14' || userProfile.diningPlan === 'gray_10') && (
+              <>
+                <Text style={styles.sectionSubheader}>Use Dining Plan Swipes</Text>
+                <Text style={styles.swipeDescription}>
+                  How many swipes do you want to use today? 
+                  {userProfile.diningPlan === 'scarlet_14' ? ' (14 per week)' : ' (10 per week)'}
+                </Text>
+                <View style={styles.swipeOptions}>
+                  {[1, 2, 3].map((swipes) => (
+                    <TouchableOpacity
+                      key={swipes}
+                      style={[
+                        styles.swipeOption,
+                        userProfile.dailySwipes === swipes && styles.selectedSwipeOption
+                      ]}
+                      onPress={() => setUserProfile({...userProfile, dailySwipes: swipes})}
+                    >
+                      <Text style={[
+                        styles.swipeOptionText,
+                        userProfile.dailySwipes === swipes && styles.selectedSwipeOptionText
+                      ]}>
+                        {swipes} {swipes === 1 ? 'swipe' : 'swipes'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                <Text style={styles.budgetDivider}>OR</Text>
+              </>
+            )}
+            
+            <Text style={styles.sectionSubheader}>Set Daily Budget</Text>
             <View style={styles.budgetOptions}>
               {[15, 20, 25, 30, 35, 40, 45, 50].map((amount) => (
                 <TouchableOpacity
@@ -245,7 +280,7 @@ export default function ProfileScreen() {
                   setUserProfile(prev => ({...prev, customBudget: text, budget: amount}));
                 }
               }}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
@@ -1343,5 +1378,51 @@ const styles = StyleSheet.create({
   },
   selectedOptionText: {
     color: COLORS.background,
+  },
+  sectionSubheader: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  swipeDescription: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  swipeOptions: {
+    flexDirection: 'row',
+    marginBottom: SPACING.lg,
+  },
+  swipeOption: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flex: 1,
+    alignItems: 'center',
+  },
+  selectedSwipeOption: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  swipeOptionText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  selectedSwipeOptionText: {
+    color: COLORS.background,
+  },
+  budgetDivider: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: 'bold',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginVertical: SPACING.md,
   },
 }); 

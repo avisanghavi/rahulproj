@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,12 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
+import { BrutusAIService, ChatMessage } from '../../services/openai';
 
 interface Message {
   id: string;
@@ -30,34 +33,81 @@ export default function BrutusAIScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [brutusAI] = useState(new BrutusAIService());
+  const [isApiConfigured, setIsApiConfigured] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    setIsApiConfigured(brutusAI.isConfigured());
+    if (!brutusAI.isConfigured()) {
+      // Add a message about API configuration
+      const configMessage: Message = {
+        id: 'config-notice',
+        text: 'Note: I\'m currently running in demo mode. For full functionality, configure your OpenAI API key in the environment variables.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, configMessage]);
+    }
+  }, [brutusAI]);
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
 
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
       isUser: true,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputText;
     setInputText('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(inputText);
-      const aiMessage: Message = {
+    try {
+      // Convert messages to ChatMessage format for OpenAI
+      const chatMessages: ChatMessage[] = messages
+        .filter(msg => msg.id !== 'config-notice') // Exclude config notice
+        .map(msg => ({
+          role: msg.isUser ? 'user' as const : 'assistant' as const,
+          content: msg.text,
+        }));
+
+      // Add the current user message
+      chatMessages.push({
+        role: 'user',
+        content: currentInput,
+      });
+
+      // Get AI response
+      const aiResponseText = await brutusAI.getChatResponse(chatMessages);
+      
+      const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: aiResponse,
+        text: aiResponseText,
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
+      
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      
+      // Fallback to local response if API fails
+      const fallbackText = generateAIResponse(currentInput);
+      const fallbackResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: fallbackText,
+        isUser: false,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, fallbackResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const generateAIResponse = (userMessage: string): string => {
@@ -106,70 +156,109 @@ export default function BrutusAIScreen() {
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Chat Header */}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+              {/* Chat Header with Brutus Buckeye */}
       <View style={styles.header}>
-        <Ionicons name="school" size={24} color={COLORS.primary} />
-        <Text style={styles.headerTitle}>BrutusAI</Text>
-        <Text style={styles.headerSubtitle}>Your Nutrition Assistant</Text>
+        <View style={styles.headerIcon}>
+          <View style={styles.brutusHead}>
+            <Text style={styles.brutusEmoji}>🌰</Text>
+          </View>
+        </View>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>BrutusAI</Text>
+          <Text style={styles.headerSubtitle}>Your Nutrition Assistant • Powered by Brutus Buckeye</Text>
+        </View>
       </View>
 
-      {/* Messages */}
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        {messages.map(message => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        
-        {isTyping && (
-          <View style={[styles.messageBubble, styles.aiMessage]}>
-            <View style={styles.aiHeader}>
-              <Ionicons name="school" size={16} color={COLORS.primary} />
-              <Text style={styles.aiName}>BrutusAI</Text>
-            </View>
-            <View style={styles.typingIndicator}>
-              <Text style={styles.typingText}>Typing...</Text>
-              <View style={styles.typingDots}>
-                <View style={styles.dot} />
-                <View style={styles.dot} />
-                <View style={styles.dot} />
+        {/* Messages */}
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        >
+          {messages.map(message => (
+            <MessageBubble key={message.id} message={message} />
+          ))}
+          
+          {isTyping && (
+            <View style={[styles.messageBubble, styles.aiMessage]}>
+              <View style={styles.aiHeader}>
+                <Ionicons name="school" size={16} color={COLORS.primary} />
+                <Text style={styles.aiName}>BrutusAI</Text>
+              </View>
+              <View style={styles.typingIndicator}>
+                <Text style={styles.typingText}>Typing...</Text>
+                <View style={styles.typingDots}>
+                  <View style={styles.dot} />
+                  <View style={styles.dot} />
+                  <View style={styles.dot} />
+                </View>
               </View>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+          
+          {/* Conversation Starters */}
+          {messages.length <= 2 && !isTyping && (
+            <View style={styles.startersContainer}>
+              <Text style={styles.startersTitle}>Try asking about:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {brutusAI.getConversationStarters().map((starter, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.starterButton}
+                    onPress={() => {
+                      setInputText(starter);
+                      // Auto-send after a short delay
+                      setTimeout(() => {
+                        if (starter.trim()) {
+                          setInputText(starter);
+                          sendMessage();
+                        }
+                      }, 100);
+                    }}
+                  >
+                    <Text style={styles.starterText}>{starter}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </ScrollView>
 
-      {/* Input Area */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Ask BrutusAI about nutrition..."
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={500}
-          placeholderTextColor={COLORS.textSecondary}
-        />
-        <TouchableOpacity 
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-          onPress={sendMessage}
-          disabled={!inputText.trim()}
-        >
-          <Ionicons 
-            name="send" 
-            size={20} 
-            color={!inputText.trim() ? COLORS.textSecondary : COLORS.background} 
+        {/* Input Area - Always visible at bottom */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ask BrutusAI about nutrition..."
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={500}
+            placeholderTextColor={COLORS.textSecondary}
+            returnKeyType="send"
+            onSubmitEditing={sendMessage}
           />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <TouchableOpacity 
+            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+            onPress={sendMessage}
+            disabled={!inputText.trim()}
+          >
+            <Ionicons 
+              name="send" 
+              size={20} 
+              color={!inputText.trim() ? COLORS.textSecondary : COLORS.background} 
+            />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -178,12 +267,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  keyboardContainer: {
+    flex: 1,
+  },
   header: {
     backgroundColor: COLORS.surface,
     padding: SPACING.lg,
+    flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  headerIcon: {
+    marginRight: SPACING.md,
+  },
+  brutusHead: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.medium,
+  },
+  brutusEmoji: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
@@ -199,6 +311,10 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     padding: SPACING.lg,
+  },
+  messagesContent: {
+    paddingBottom: SPACING.lg,
+    flexGrow: 1,
   },
   messageBubble: {
     marginBottom: SPACING.md,
@@ -268,6 +384,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+    position: 'relative',
+    minHeight: 80,
+    ...SHADOWS.light,
   },
   textInput: {
     flex: 1,
@@ -290,5 +409,30 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: COLORS.border,
+  },
+  startersContainer: {
+    padding: SPACING.lg,
+    paddingTop: SPACING.sm,
+  },
+  startersTitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    fontWeight: '500',
+  },
+  starterButton: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    maxWidth: 200,
+  },
+  starterText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    textAlign: 'center',
   },
 }); 

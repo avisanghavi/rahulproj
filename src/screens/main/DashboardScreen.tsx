@@ -311,16 +311,16 @@ export default function DashboardScreen() {
           <View style={styles.actionsGrid}>
             <ActionCard
               icon="restaurant"
-              title="Browse Menu"
-              subtitle="Explore dining options"
+              title="Menu"
+              subtitle="Browse dining options"
               onPress={() => navigation.navigate('MenuBrowser')}
               delay={1800}
             />
             
             <ActionCard
               icon="chatbox-ellipses"
-              title="Ask BrutusAI"
-              subtitle="Get meal recommendations"
+              title="BrutusAI"
+              subtitle="Meal recommendations"
               onPress={() => navigation.navigate('BrutusAI')}
               delay={1900}
               gradient={true}
@@ -328,16 +328,16 @@ export default function DashboardScreen() {
             
             <ActionCard
               icon="calendar"
-              title="Plan Meals"
-              subtitle="Customize your plan"
+              title="Cart & Plan"
+              subtitle="Manage your meals"
               onPress={() => navigation.navigate('MealPlanner')}
               delay={2000}
             />
             
             <ActionCard
               icon="person"
-              title="View Profile"
-              subtitle="Manage your preferences"
+              title="Profile"
+              subtitle="Account settings"
               onPress={() => navigation.navigate('Profile')}
               delay={2100}
             />
@@ -539,18 +539,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: SPACING.sm,
   },
   actionCardContainer: {
-    width: '48%',
+    width: '47%',
     marginBottom: SPACING.lg,
+    aspectRatio: 1,
   },
   actionCard: {
     backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    flex: 1,
     ...SHADOWS.medium,
   },
   actionCardGradient: {
@@ -559,12 +563,12 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.xl,
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   actionTitle: {
     fontSize: FONT_SIZES.md,
@@ -572,11 +576,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     textAlign: 'center',
     marginBottom: SPACING.xs,
+    lineHeight: FONT_SIZES.md * 1.2,
   },
   actionSubtitle: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    lineHeight: FONT_SIZES.xs * 1.3,
   },
   recentActivityCard: {
     backgroundColor: COLORS.background,

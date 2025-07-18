@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Animated } from 'react-native';
 
 import { RootStackParamList, TabParamList } from '../types';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
@@ -25,6 +25,30 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const DEMO_MODE = true;
 
 function TabNavigator() {
+  const AnimatedTabIcon = ({ focused, color, size, iconName }: {
+    focused: boolean;
+    color: string;
+    size: number;
+    iconName: keyof typeof Ionicons.glyphMap;
+  }) => {
+    const scaleValue = React.useRef(new Animated.Value(1)).current;
+
+    React.useEffect(() => {
+      Animated.spring(scaleValue, {
+        toValue: focused ? 1.2 : 1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }).start();
+    }, [focused, scaleValue]);
+
+    return (
+      <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+        <Ionicons name={iconName} size={size} color={color} />
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <Tab.Navigator
@@ -46,19 +70,17 @@ function TabNavigator() {
               iconName = 'ellipse-outline';
             }
 
-            return <Ionicons name={iconName} size={size} color={color} />;
+            return <AnimatedTabIcon focused={focused} color={color} size={size} iconName={iconName} />;
           },
           tabBarActiveTintColor: COLORS.primary,
           tabBarInactiveTintColor: COLORS.textSecondary,
           tabBarStyle: {
             backgroundColor: COLORS.background,
-            borderTopColor: COLORS.primary,
-            borderTopWidth: 3,
+            borderTopColor: COLORS.border,
+            borderTopWidth: 1,
             height: 60,
             paddingBottom: 8,
             paddingTop: 6,
-            position: 'absolute',
-            bottom: 0,
           },
           headerStyle: {
             backgroundColor: COLORS.primary,
@@ -95,6 +117,8 @@ function TabNavigator() {
         options={{ title: 'Profile' }}
       />
     </Tab.Navigator>
+    {/* Red accent bar below tab bar */}
+    <View style={{ height: 8, backgroundColor: COLORS.primary }} />
     </View>
   );
 }

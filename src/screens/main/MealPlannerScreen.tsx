@@ -5,203 +5,355 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Animatable from 'react-native-animatable';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
 import { allMenuItems } from '../../data/mockData';
 import { MenuItem } from '../../types';
 
-interface MealPlan {
-  breakfast: MenuItem[];
-  lunch: MenuItem[];
-  dinner: MenuItem[];
-  snacks: MenuItem[];
+interface CartItem extends MenuItem {
+  quantity: number;
+  scheduledMeal?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  scheduledDate?: Date;
+}
+
+interface WeeklyPlan {
+  [key: string]: {
+    breakfast: CartItem[];
+    lunch: CartItem[];
+    dinner: CartItem[];
+    snack: CartItem[];
+  };
 }
 
 export default function MealPlannerScreen() {
-  const [mealPlan, setMealPlan] = useState<MealPlan>({
-    breakfast: [],
-    lunch: [],
-    dinner: [],
-    snacks: [],
-  });
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>({});
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'cart' | 'weekly' | 'budget'>('cart');
+  const [diningPlan] = useState('scarlet_14'); // This would come from user profile
 
-  const calculateTotals = () => {
-    const allItems = [...mealPlan.breakfast, ...mealPlan.lunch, ...mealPlan.dinner, ...mealPlan.snacks];
-    return {
-      calories: allItems.reduce((sum, item) => sum + item.calories, 0),
-      protein: allItems.reduce((sum, item) => sum + item.protein, 0),
-      carbs: allItems.reduce((sum, item) => sum + item.carbs, 0),
-      fat: allItems.reduce((sum, item) => sum + item.fat, 0),
-      cost: allItems.reduce((sum, item) => sum + item.price, 0),
+  const getDiningPlanInfo = () => {
+    const plans = {
+      scarlet_14: { swipesPerWeek: 14, name: 'Scarlet 14' },
+      gray_10: { swipesPerWeek: 10, name: 'Gray 10' },
+      traditions: { swipesPerWeek: 21, name: 'Traditions' }, // 3 meals x 7 days
+      carmen_1: { swipesTotal: 165, name: 'Carmen 1' },
+      carmen_2: { swipesTotal: 110, name: 'Carmen 2' },
     };
+    return plans[diningPlan as keyof typeof plans] || plans.scarlet_14;
   };
 
-  const addToMeal = (item: MenuItem, mealType: keyof MealPlan) => {
-    setMealPlan(prev => ({
-      ...prev,
-      [mealType]: [...prev[mealType], item],
-    }));
+  const addToCart = (item: MenuItem, quantity: number = 1) => {
+    const existingItem = cartItems.find(cartItem => cartItem.id === item.id);
+    
+    if (existingItem) {
+      setCartItems(cartItems.map(cartItem =>
+        cartItem.id === item.id
+          ? { ...cartItem, quantity: cartItem.quantity + quantity }
+          : cartItem
+      ));
+    } else {
+      setCartItems([...cartItems, { ...item, quantity }]);
+    }
   };
 
-  const removeFromMeal = (itemId: string, mealType: keyof MealPlan) => {
-    setMealPlan(prev => ({
-      ...prev,
-      [mealType]: prev[mealType].filter(item => item.id !== itemId),
-    }));
+  const removeFromCart = (itemId: string) => {
+    setCartItems(cartItems.filter(item => item.id !== itemId));
   };
 
-  const clearPlan = () => {
-    setMealPlan({
-      breakfast: [],
-      lunch: [],
-      dinner: [],
-      snacks: [],
+  const updateQuantity = (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(itemId);
+      return;
+    }
+    
+    setCartItems(cartItems.map(item =>
+      item.id === itemId ? { ...item, quantity } : item
+    ));
+  };
+
+  const scheduleItem = (item: CartItem, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack', date: Date) => {
+    const dateKey = date.toDateString();
+    const currentDayPlan = weeklyPlan[dateKey] || { breakfast: [], lunch: [], dinner: [], snack: [] };
+    
+    setWeeklyPlan({
+      ...weeklyPlan,
+      [dateKey]: {
+        ...currentDayPlan,
+        [mealType]: [...currentDayPlan[mealType], { ...item, scheduledMeal: mealType, scheduledDate: date }]
+      }
     });
+    
+    // Remove from cart
+    removeFromCart(item.id);
   };
 
-  const totals = calculateTotals();
+  const calculateCartTotals = () => {
+    return cartItems.reduce((totals, item) => ({
+      items: totals.items + item.quantity,
+      cost: totals.cost + (item.price * item.quantity),
+      calories: totals.calories + (item.calories * item.quantity),
+      protein: totals.protein + (item.protein * item.quantity),
+    }), { items: 0, cost: 0, calories: 0, protein: 0 });
+  };
 
-  const MealSection = ({ title, mealType, items, icon }: {
-    title: string;
-    mealType: keyof MealPlan;
-    items: MenuItem[];
-    icon: string;
-  }) => (
-    <View style={styles.mealSection}>
-      <View style={styles.mealHeader}>
-        <Ionicons name={icon as any} size={20} color={COLORS.primary} />
-        <Text style={styles.mealTitle}>{title}</Text>
+  const getWeekDates = () => {
+    const week = [];
+    const startOfWeek = new Date(selectedDate);
+    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      week.push(date);
+    }
+    return week;
+  };
+
+  const calculateWeeklySwipes = () => {
+    const weekDates = getWeekDates();
+    return weekDates.reduce((total, date) => {
+      const dayPlan = weeklyPlan[date.toDateString()];
+      if (!dayPlan) return total;
+      
+      const daySwipes = Object.values(dayPlan).flat().length;
+      return total + daySwipes;
+    }, 0);
+  };
+
+  const totals = calculateCartTotals();
+  const planInfo = getDiningPlanInfo();
+  const weeklySwipes = calculateWeeklySwipes();
+
+  const CartView = () => (
+    <View style={styles.cartContainer}>
+      <Text style={styles.sectionTitle}>Shopping Cart ({totals.items} items)</Text>
+      
+      {cartItems.length === 0 ? (
+        <Animatable.View animation="fadeIn" style={styles.emptyCart}>
+          <Ionicons name="cart-outline" size={64} color={COLORS.textSecondary} />
+          <Text style={styles.emptyCartTitle}>Your cart is empty</Text>
+          <Text style={styles.emptyCartText}>Browse the menu to add items to your cart</Text>
+        </Animatable.View>
+      ) : (
+        <>
+          <ScrollView style={styles.cartItems}>
+            {cartItems.map((item, index) => (
+              <Animatable.View
+                key={item.id}
+                animation="slideInRight"
+                delay={index * 100}
+                style={styles.cartItem}
+              >
+                <View style={styles.cartItemInfo}>
+                  <Text style={styles.cartItemName}>{item.name}</Text>
+                  <Text style={styles.cartItemDetails}>
+                    {item.calories} cal • ${item.price.toFixed(2)} each
+                  </Text>
+                  <Text style={styles.cartItemLocation}>{item.location}</Text>
+                </View>
+                
+                <View style={styles.cartItemControls}>
+                  <View style={styles.quantityControls}>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                    >
+                      <Ionicons name="remove" size={16} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                    >
+                      <Ionicons name="add" size={16} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <TouchableOpacity
+                    style={styles.scheduleButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Schedule Meal',
+                        'When would you like to eat this?',
+                        [
+                          { text: 'Breakfast', onPress: () => scheduleItem(item, 'breakfast', selectedDate) },
+                          { text: 'Lunch', onPress: () => scheduleItem(item, 'lunch', selectedDate) },
+                          { text: 'Dinner', onPress: () => scheduleItem(item, 'dinner', selectedDate) },
+                          { text: 'Snack', onPress: () => scheduleItem(item, 'snack', selectedDate) },
+                          { text: 'Cancel', style: 'cancel' }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="calendar" size={16} color={COLORS.background} />
+                  </TouchableOpacity>
+                </View>
+              </Animatable.View>
+            ))}
+          </ScrollView>
+          
+          <View style={styles.cartSummary}>
+            <View style={styles.cartTotals}>
+              <View style={styles.cartTotalRow}>
+                <Text style={styles.cartTotalLabel}>Total Cost:</Text>
+                <Text style={styles.cartTotalValue}>${totals.cost.toFixed(2)}</Text>
+              </View>
+              <View style={styles.cartTotalRow}>
+                <Text style={styles.cartTotalLabel}>Total Calories:</Text>
+                <Text style={styles.cartTotalValue}>{totals.calories}</Text>
+              </View>
+              <View style={styles.cartTotalRow}>
+                <Text style={styles.cartTotalLabel}>Total Protein:</Text>
+                <Text style={styles.cartTotalValue}>{totals.protein.toFixed(0)}g</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity style={styles.checkoutButton}>
+              <LinearGradient
+                colors={[COLORS.primary, '#AA0000']}
+                style={styles.checkoutButtonGradient}
+              >
+                <Ionicons name="bag" size={20} color={COLORS.background} />
+                <Text style={styles.checkoutButtonText}>Order via Grubhub</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </View>
+  );
+
+  const WeeklyView = () => (
+    <View style={styles.weeklyContainer}>
+      <Text style={styles.sectionTitle}>Weekly Meal Plan</Text>
+      
+      <View style={styles.diningPlanInfo}>
+        <Text style={styles.diningPlanText}>
+          {planInfo.name} Plan - {weeklySwipes}/{('swipesPerWeek' in planInfo) ? planInfo.swipesPerWeek : '∞'} swipes used this week
+        </Text>
+        {('swipesPerWeek' in planInfo) && (
+          <View style={styles.swipeProgressBar}>
+            <View 
+              style={[
+                styles.swipeProgress, 
+                { width: `${Math.min((weeklySwipes / planInfo.swipesPerWeek) * 100, 100)}%` }
+              ]} 
+            />
+          </View>
+        )}
       </View>
       
-      <View style={styles.mealItems}>
-        {items.length === 0 ? (
-          <Text style={styles.emptyText}>Tap + to add items</Text>
-        ) : (
-          items.map(item => (
-            <View key={`${item.id}-${Math.random()}`} style={styles.mealItem}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemDetails}>
-                  {item.calories} cal • ${item.price.toFixed(2)}
-                </Text>
-              </View>
-              <TouchableOpacity 
-                onPress={() => removeFromMeal(item.id, mealType)}
-                style={styles.removeButton}
-              >
-                <Ionicons name="close-circle" size={20} color={COLORS.error} />
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekScroll}>
+        {getWeekDates().map((date, index) => {
+          const dayPlan = weeklyPlan[date.toDateString()];
+          const daySwipes = dayPlan ? Object.values(dayPlan).flat().length : 0;
+          const isToday = date.toDateString() === new Date().toDateString();
+          
+          return (
+            <TouchableOpacity
+              key={date.toDateString()}
+              style={[styles.dayCard, isToday && styles.todayCard]}
+              onPress={() => setSelectedDate(date)}
+            >
+              <Text style={[styles.dayName, isToday && styles.todayText]}>
+                {date.toLocaleDateString('en', { weekday: 'short' })}
+              </Text>
+              <Text style={[styles.dayDate, isToday && styles.todayText]}>
+                {date.getDate()}
+              </Text>
+              <Text style={styles.daySwipes}>{daySwipes} meals</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+      
+      {/* Selected day details would go here */}
+      <View style={styles.selectedDayPlan}>
+        <Text style={styles.selectedDayTitle}>
+          {selectedDate.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </Text>
+        {/* Add meal sections for the selected day */}
       </View>
     </View>
   );
 
-  const QuickAddItem = ({ item }: { item: MenuItem }) => (
-    <TouchableOpacity style={styles.quickAddItem}>
-      <Text style={styles.quickAddName}>{item.name}</Text>
-      <Text style={styles.quickAddDetails}>{item.calories} cal • ${item.price.toFixed(2)}</Text>
+  const BudgetView = () => (
+    <View style={styles.budgetContainer}>
+      <Text style={styles.sectionTitle}>Budget Tracking</Text>
       
-      <View style={styles.addButtons}>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => addToMeal(item, 'breakfast')}
-        >
-          <Text style={styles.addButtonText}>B</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => addToMeal(item, 'lunch')}
-        >
-          <Text style={styles.addButtonText}>L</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => addToMeal(item, 'dinner')}
-        >
-          <Text style={styles.addButtonText}>D</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => addToMeal(item, 'snacks')}
-        >
-          <Text style={styles.addButtonText}>S</Text>
-        </TouchableOpacity>
+      <View style={styles.budgetCard}>
+        <Text style={styles.budgetTitle}>Weekly Spending</Text>
+        <Text style={styles.budgetAmount}>${totals.cost.toFixed(2)}</Text>
+        <Text style={styles.budgetSubtext}>of $175 weekly budget</Text>
+        
+        <View style={styles.budgetProgressBar}>
+          <View style={[styles.budgetProgress, { width: `${Math.min((totals.cost / 175) * 100, 100)}%` }]} />
+        </View>
       </View>
-    </TouchableOpacity>
+      
+      {/* Add more budget tracking features */}
+    </View>
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Nutrition Summary */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Today's Plan</Text>
-        
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totals.calories}</Text>
-            <Text style={styles.summaryLabel}>Calories</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totals.protein.toFixed(0)}g</Text>
-            <Text style={styles.summaryLabel}>Protein</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totals.carbs.toFixed(0)}g</Text>
-            <Text style={styles.summaryLabel}>Carbs</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totals.fat.toFixed(0)}g</Text>
-            <Text style={styles.summaryLabel}>Fat</Text>
-          </View>
-        </View>
-        
-        <View style={styles.costContainer}>
-          <Text style={styles.costText}>Total Cost: ${totals.cost.toFixed(2)}</Text>
-          <TouchableOpacity style={styles.clearButton} onPress={clearPlan}>
-            <Text style={styles.clearButtonText}>Clear All</Text>
-          </TouchableOpacity>
+    <View style={styles.container}>
+      {/* Header with view mode toggle */}
+      <View style={styles.header}>
+        <View style={styles.headerTabs}>
+          {[
+            { key: 'cart', label: 'Cart', icon: 'cart' },
+            { key: 'weekly', label: 'Weekly', icon: 'calendar' },
+            { key: 'budget', label: 'Budget', icon: 'wallet' },
+          ].map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.headerTab, viewMode === tab.key && styles.activeHeaderTab]}
+              onPress={() => setViewMode(tab.key as any)}
+            >
+              <Ionicons 
+                name={tab.icon as any} 
+                size={20} 
+                color={viewMode === tab.key ? COLORS.background : COLORS.textSecondary} 
+              />
+              <Text style={[
+                styles.headerTabText,
+                viewMode === tab.key && styles.activeHeaderTabText
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
-      {/* Meal Sections */}
-      <MealSection 
-        title="Breakfast" 
-        mealType="breakfast" 
-        items={mealPlan.breakfast}
-        icon="sunny"
-      />
-      <MealSection 
-        title="Lunch" 
-        mealType="lunch" 
-        items={mealPlan.lunch}
-        icon="partly-sunny"
-      />
-      <MealSection 
-        title="Dinner" 
-        mealType="dinner" 
-        items={mealPlan.dinner}
-        icon="moon"
-      />
-      <MealSection 
-        title="Snacks" 
-        mealType="snacks" 
-        items={mealPlan.snacks}
-        icon="cafe"
-      />
+      {/* Content based on view mode */}
+      {viewMode === 'cart' && <CartView />}
+      {viewMode === 'weekly' && <WeeklyView />}
+      {viewMode === 'budget' && <BudgetView />}
 
-      {/* Quick Add Section */}
-      <View style={styles.quickAddSection}>
-        <Text style={styles.sectionTitle}>Quick Add Items</Text>
-        <Text style={styles.sectionSubtitle}>Tap B/L/D/S to add to meals</Text>
-        
-        {allMenuItems.slice(0, 8).map(item => (
-          <QuickAddItem key={item.id} item={item} />
-        ))}
+      {/* Quick add popular items */}
+      <View style={styles.quickAdd}>
+        <Text style={styles.quickAddTitle}>Quick Add Popular Items</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {allMenuItems.slice(0, 5).map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.quickAddItem}
+              onPress={() => addToCart(item)}
+            >
+              <Text style={styles.quickAddName}>{item.name}</Text>
+              <Text style={styles.quickAddPrice}>${item.price.toFixed(2)}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -210,164 +362,294 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  summaryCard: {
+  header: {
     backgroundColor: COLORS.surface,
-    margin: SPACING.lg,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    ...SHADOWS.medium,
-  },
-  summaryTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.lg,
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  summaryLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  costContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  costText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: 'bold',
-    color: COLORS.success,
-  },
-  clearButton: {
-    backgroundColor: COLORS.error,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  clearButtonText: {
-    color: COLORS.background,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: 'bold',
-  },
-  mealSection: {
-    backgroundColor: COLORS.background,
-    margin: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    ...SHADOWS.light,
-  },
-  mealHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: BORDER_RADIUS.lg,
-    borderTopRightRadius: BORDER_RADIUS.lg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  mealTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginLeft: SPACING.sm,
-  },
-  mealItems: {
-    padding: SPACING.lg,
-    minHeight: 80,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginTop: SPACING.md,
-  },
-  mealItem: {
+  headerTabs: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
   },
-  itemInfo: {
+  headerTab: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginHorizontal: SPACING.xs,
   },
-  itemName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  activeHeaderTab: {
+    backgroundColor: COLORS.primary,
   },
-  itemDetails: {
+  headerTabText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginLeft: SPACING.xs,
+    fontWeight: '500',
   },
-  removeButton: {
-    padding: SPACING.xs,
-  },
-  quickAddSection: {
-    padding: SPACING.lg,
+  activeHeaderTabText: {
+    color: COLORS.background,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.xl,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: SPACING.xs,
+    margin: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  sectionSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
+  cartContainer: {
+    flex: 1,
   },
-  quickAddItem: {
-    backgroundColor: COLORS.background,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
+  emptyCart: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxl,
+  },
+  emptyCartTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginTop: SPACING.lg,
     marginBottom: SPACING.sm,
+  },
+  emptyCartText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  cartItems: {
+    flex: 1,
+    paddingHorizontal: SPACING.lg,
+  },
+  cartItem: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOWS.light,
   },
-  quickAddName: {
+  cartItemInfo: {
+    flex: 1,
+  },
+  cartItemName: {
     fontSize: FONT_SIZES.md,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.xs,
   },
-  quickAddDetails: {
+  cartItemDetails: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.xs,
   },
-  addButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  cartItemLocation: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
   },
-  addButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    minWidth: 40,
+  cartItemControls: {
     alignItems: 'center',
   },
-  addButtonText: {
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  quantityButton: {
+    padding: SPACING.xs,
+  },
+  quantityText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginHorizontal: SPACING.sm,
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  scheduleButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+  },
+  cartSummary: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  cartTotals: {
+    marginBottom: SPACING.lg,
+  },
+  cartTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  cartTotalLabel: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+  },
+  cartTotalValue: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  checkoutButton: {
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+  },
+  checkoutButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+  },
+  checkoutButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: 'bold',
     color: COLORS.background,
+    marginLeft: SPACING.sm,
+  },
+  weeklyContainer: {
+    flex: 1,
+  },
+  diningPlanInfo: {
+    backgroundColor: COLORS.surface,
+    margin: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  diningPlanText: {
     fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+  },
+  swipeProgressBar: {
+    height: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 3,
+  },
+  swipeProgress: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
+  weekScroll: {
+    paddingHorizontal: SPACING.lg,
+  },
+  dayCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginRight: SPACING.sm,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  todayCard: {
+    backgroundColor: COLORS.primary,
+  },
+  dayName: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  dayDate: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginVertical: SPACING.xs,
+  },
+  daySwipes: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+  },
+  todayText: {
+    color: COLORS.background,
+  },
+  selectedDayPlan: {
+    margin: SPACING.lg,
+  },
+  selectedDayTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  budgetContainer: {
+    flex: 1,
+  },
+  budgetCard: {
+    backgroundColor: COLORS.background,
+    margin: SPACING.lg,
+    padding: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    alignItems: 'center',
+    ...SHADOWS.medium,
+  },
+  budgetTitle: {
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  budgetAmount: {
+    fontSize: FONT_SIZES.header,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
+  },
+  budgetSubtext: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+  },
+  budgetProgressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: COLORS.border,
+    borderRadius: 4,
+  },
+  budgetProgress: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+  },
+  quickAdd: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  quickAddTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  quickAddItem: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minWidth: 120,
+  },
+  quickAddName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  quickAddPrice: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
     fontWeight: 'bold',
   },
 }); 

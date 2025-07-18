@@ -1,164 +1,98 @@
-// OpenAI service for BrutusAI chatbot
-// In a real app, you would use your actual OpenAI API key
+import OpenAI from 'openai';
 
-interface ChatMessage {
+// Note: In production, use environment variables
+// For development, you'll need to add your API key
+const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY || 'your_api_key_here';
+
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true, // Only for development/demo
+});
+
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
+export class BrutusAIService {
+  private systemPrompt = `You are BrutusAI, the official nutrition assistant for Ohio State University students. You help students at OSU make informed decisions about dining options across campus.
 
-// Mock OpenAI API responses for demo purposes
-const mockResponses: Record<string, string> = {
-  'meal plan': `I'd be happy to help you create a meal plan! 🍽️
+Your personality:
+- Friendly, knowledgeable, and enthusiastic about OSU
+- Use "Buckeye" and OSU references naturally but don't overdo it
+- Focus on practical, helpful nutrition advice
+- Be encouraging and supportive
 
-Based on your goals, I recommend:
+Your knowledge includes:
+- OSU dining locations (Union Market, Traditions at Scott, Courtside Cafe, etc.)
+- Campus dining plans (Scarlet 14, Gray 10, Traditions, Carmen 1, Carmen 2)
+- Nutritional guidance for college students
+- Budget-friendly meal options
+- Dietary restrictions and allergen awareness
 
-🥗 **Breakfast**: Greek Yogurt Parfait (250 cal)
-🍔 **Lunch**: Turkey Sandwich + Sweet Potato Fries (800 cal)  
-🥙 **Dinner**: Mediterranean Wrap (465 cal)
+Guidelines:
+- Keep responses concise but helpful (2-3 sentences usually)
+- Ask follow-up questions when needed
+- Suggest specific OSU dining locations when relevant
+- Consider the student's dining plan and budget
+- Be aware of common dietary restrictions
 
-This plan provides balanced nutrition with 1,515 calories, 72g protein, and costs about $19.50. Would you like me to adjust anything?`,
+Remember: You're here to make campus dining easier and healthier for Buckeyes!`;
 
-  'protein': `Great question about protein! 💪
+  async getChatResponse(messages: ChatMessage[]): Promise<string> {
+    try {
+      // Add system prompt to the beginning if not present
+      const messagesWithSystem = [
+        { role: 'system' as const, content: this.systemPrompt },
+        ...messages
+      ];
 
-For muscle building, I recommend:
-- Grilled Chicken Caesar Salad (35g protein)
-- Turkey Sandwich (32g protein)
-- Greek Yogurt Parfait (15g protein)
-
-Aim for 1.6-2.2g protein per kg of body weight. These OSU dining options can help you reach your goals!`,
-
-  'weight loss': `I can help with healthy weight loss! 🎯
-
-Try these lower-calorie, high-nutrition options:
-- Vegetarian Quinoa Bowl (420 cal, filling)
-- Fresh Fruit Smoothie (180 cal)
-- Grilled Chicken Caesar Salad (380 cal)
-
-Focus on high-protein, high-fiber foods to stay satisfied while in a calorie deficit.`,
-
-  'budget': `Let's find budget-friendly options! 💰
-
-Best value meals at OSU:
-- Greek Yogurt Parfait ($3.50)
-- Sweet Potato Fries ($4.25)
-- Fresh Fruit Smoothie ($4.50)
-- Vegetarian Quinoa Bowl ($6.75)
-
-You can eat well for under $20/day with smart choices!`,
-
-  'default': `Thanks for your question! 🤔
-
-I'm here to help with meal planning, nutrition advice, and finding the best dining options at OSU. Feel free to ask me about:
-
-• Creating personalized meal plans
-• Nutrition information  
-• Budget-friendly options
-• Dietary restrictions
-• Fitness goals
-
-What specific area would you like help with?`
-};
-
-export const generateChatResponse = async (
-  messages: ChatMessage[],
-  apiKey?: string
-): Promise<{ response: string; error?: string }> => {
-  try {
-    // For demo purposes, use mock responses
-    if (!apiKey || apiKey === 'demo') {
-      return await generateMockResponse(messages);
-    }
-
-    // Real OpenAI API call would go here
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+      const completion = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `You are BrutusAI, a friendly nutrition assistant for Ohio State University students. 
-            You help students plan healthy, budget-friendly meals using OSU dining options. 
-            You know about campus dining locations like Scott Dining, Traditions at Scott Commons, and Kennedy Commons.
-            Always be encouraging, use emojis, and focus on practical nutrition advice for college students.`
-          },
-          ...messages
-        ],
-        max_tokens: 500,
+        messages: messagesWithSystem,
+        max_tokens: 200,
         temperature: 0.7,
-      }),
-    });
+        presence_penalty: 0.1,
+        frequency_penalty: 0.1,
+      });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data: OpenAIResponse = await response.json();
-    return { 
-      response: data.choices[0]?.message?.content || 'Sorry, I couldn\'t generate a response.',
-      error: undefined 
-    };
-
-  } catch (error: any) {
-    console.error('OpenAI API error:', error);
-    
-    // Fallback to mock response
-    return await generateMockResponse(messages);
-  }
-};
-
-const generateMockResponse = async (messages: ChatMessage[]): Promise<{ response: string; error?: string }> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-
-  const lastMessage = messages[messages.length - 1];
-  if (!lastMessage || lastMessage.role !== 'user') {
-    return { response: mockResponses.default };
-  }
-
-  const userMessage = lastMessage.content.toLowerCase();
-  
-  // Find matching response based on keywords
-  for (const [keyword, response] of Object.entries(mockResponses)) {
-    if (keyword !== 'default' && userMessage.includes(keyword)) {
-      return { response };
+      return completion.choices[0]?.message?.content || 'Sorry, I had trouble understanding that. Could you try asking again?';
+    } catch (error) {
+      console.error('OpenAI API error:', error);
+      
+      // Fallback responses for common scenarios
+      const userMessage = messages[messages.length - 1]?.content.toLowerCase() || '';
+      
+      if (userMessage.includes('budget') || userMessage.includes('cheap') || userMessage.includes('affordable')) {
+        return "For budget-friendly options, I'd recommend checking out the Union Market for their daily specials, or consider using your dining plan swipes at Traditions for unlimited meals. The Carmen plans also offer great value for commuter students!";
+      }
+      
+      if (userMessage.includes('healthy') || userMessage.includes('nutrition')) {
+        return "Great question about healthy eating! Look for grilled proteins, fresh vegetables, and whole grains at locations like Courtside Cafe. Many OSU dining locations offer nutritional information - just ask the staff or check the digital menus!";
+      }
+      
+      if (userMessage.includes('dining plan') || userMessage.includes('meal plan')) {
+        return "OSU offers several dining plans: Scarlet 14 (14 meals/week), Gray 10 (10 meals/week), Traditions (unlimited), and Carmen plans for commuters. Which one are you considering or currently have?";
+      }
+      
+      return "I'm having some technical difficulties right now, but I'm here to help with your OSU dining questions! Try asking about meal plans, healthy options, or budget-friendly choices around campus.";
     }
   }
 
-  return { response: mockResponses.default };
-};
-
-// Helper function to create a chat message
-export const createChatMessage = (role: 'user' | 'assistant', content: string): ChatMessage => ({
-  role,
-  content,
-});
-
-// Initialize with system message for context
-export const getInitialMessages = (): ChatMessage[] => [
-  {
-    role: 'system',
-    content: `You are BrutusAI, a friendly nutrition assistant for Ohio State University students. 
-    You help students plan healthy, budget-friendly meals using OSU dining options. 
-    You know about campus dining locations like Scott Dining, Traditions at Scott Commons, and Kennedy Commons.
-    Always be encouraging, use emojis, and focus on practical nutrition advice for college students.`
+  // Get conversation starters for the UI
+  getConversationStarters(): string[] {
+    return [
+      "What's the healthiest option at Union Market?",
+      "Help me stick to my dining plan budget",
+      "I'm vegetarian - where should I eat on campus?",
+      "What's good at Traditions today?",
+      "Compare the OSU dining plans for me",
+      "I have a nut allergy - what's safe to eat?"
+    ];
   }
-];
 
-export default {
-  generateChatResponse,
-  createChatMessage,
-  getInitialMessages,
-}; 
+  // Validate if the API key is configured
+  isConfigured(): boolean {
+    return OPENAI_API_KEY !== 'your_api_key_here' && OPENAI_API_KEY.length > 0;
+  }
+} 

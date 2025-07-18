@@ -11,6 +11,7 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Animatable from 'react-native-animatable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,12 +22,14 @@ import { MenuItem, DiningLocation } from '../../types';
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function MenuBrowserScreen() {
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [cartItems, setCartItems] = useState<Set<string>>(new Set());
   
   const searchAnimation = useRef(new Animated.Value(0)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
@@ -87,6 +90,18 @@ export default function MenuBrowserScreen() {
       newFavorites.add(itemId);
     }
     setFavorites(newFavorites);
+  };
+
+  const addToCart = (itemId: string) => {
+    const newCartItems = new Set(cartItems);
+    newCartItems.add(itemId);
+    setCartItems(newCartItems);
+  };
+
+  const removeFromCart = (itemId: string) => {
+    const newCartItems = new Set(cartItems);
+    newCartItems.delete(itemId);
+    setCartItems(newCartItems);
   };
 
   const getLocationDisplayName = () => {
@@ -210,13 +225,22 @@ export default function MenuBrowserScreen() {
           )}
 
           {/* Add to Cart Button */}
-          <TouchableOpacity style={styles.addButton}>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => cartItems.has(item.id) ? removeFromCart(item.id) : addToCart(item.id)}
+          >
             <LinearGradient
-              colors={[COLORS.primary, '#AA0000']}
+              colors={cartItems.has(item.id) ? [COLORS.success, '#228B22'] : [COLORS.primary, '#AA0000']}
               style={styles.addButtonGradient}
             >
-              <Ionicons name="add" size={16} color={COLORS.background} />
-              <Text style={styles.addButtonText}>Add to Plan</Text>
+              <Ionicons 
+                name={cartItems.has(item.id) ? "checkmark" : "add"} 
+                size={16} 
+                color={COLORS.background} 
+              />
+              <Text style={styles.addButtonText}>
+                {cartItems.has(item.id) ? "Added" : "Add to Cart"}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -401,6 +425,29 @@ export default function MenuBrowserScreen() {
           { useNativeDriver: false }
         )}
       />
+
+      {/* Floating Cart Button */}
+      {cartItems.size > 0 && (
+        <Animatable.View
+          animation="bounceInUp"
+          style={styles.floatingCartButton}
+        >
+          <TouchableOpacity
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('MealPlanner' as never)}
+          >
+            <LinearGradient
+              colors={[COLORS.primary, '#AA0000']}
+              style={styles.cartButtonGradient}
+            >
+              <Ionicons name="cart" size={20} color={COLORS.background} />
+              <Text style={styles.cartButtonText}>
+                Cart ({cartItems.size})
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animatable.View>
+      )}
 
       <LocationModal />
     </View>
@@ -723,5 +770,28 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+  },
+  floatingCartButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: SPACING.lg,
+    zIndex: 1000,
+  },
+  cartButton: {
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  cartButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  cartButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: 'bold',
+    color: COLORS.background,
+    marginLeft: SPACING.sm,
   },
 }); 
