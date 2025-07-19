@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
-import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, OSU_BRANDING } from '../../constants/theme';
 import { allMenuItems } from '../../data/mockData';
 import { MenuItem } from '../../types';
 
@@ -46,6 +47,25 @@ export default function MealPlannerScreen() {
       carmen_2: { swipesTotal: 110, name: 'Carmen 2' },
     };
     return plans[diningPlan as keyof typeof plans] || plans.scarlet_14;
+  };
+
+  const handleOrderOnGrubhub = async () => {
+    // Try to open Grubhub app first, then fall back to website
+    const grubhubAppUrl = 'grubhub://restaurant/ohio-state-university-dining/';
+    const grubhubWebUrl = 'https://www.grubhub.com/restaurant/ohio-state-university-dining/';
+    
+    try {
+      const canOpenApp = await Linking.canOpenURL(grubhubAppUrl);
+      if (canOpenApp) {
+        await Linking.openURL(grubhubAppUrl);
+      } else {
+        await Linking.openURL(grubhubWebUrl);
+      }
+    } catch (error) {
+      // Fallback to website if anything fails
+      console.log('Failed to open Grubhub app, opening website:', error);
+      await Linking.openURL(grubhubWebUrl);
+    }
   };
 
   const addToCart = (item: MenuItem, quantity: number = 1) => {
@@ -214,7 +234,11 @@ export default function MealPlannerScreen() {
               </View>
             </View>
             
-            <TouchableOpacity style={styles.checkoutButton}>
+            <TouchableOpacity 
+              style={styles.checkoutButton}
+              onPress={handleOrderOnGrubhub}
+              activeOpacity={0.9}
+            >
               <LinearGradient
                 colors={[COLORS.primary, '#AA0000']}
                 style={styles.checkoutButtonGradient}
@@ -302,7 +326,10 @@ export default function MealPlannerScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#FFFFFF', '#FFF5F5', '#FFE6E6', '#FFCCCC']}
+      style={styles.container}
+    >
       {/* Header with view mode toggle */}
       <View style={styles.header}>
         <View style={styles.headerTabs}>
@@ -353,7 +380,7 @@ export default function MealPlannerScreen() {
           ))}
         </ScrollView>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 

@@ -12,15 +12,46 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, OSU_BRANDING } from '../../constants/theme';
+import { useNavigation } from '@react-navigation/native';
+
+interface UserProfile {
+  name: string;
+  age: string;
+  email: string;
+  year: string;
+  major: string;
+  weight: string;
+  height: string;
+  diningPlan: string;
+  calorieGoal: number;
+  budget: number;
+  customBudget: string;
+  dailySwipes: number;
+  fitnessGoal: string;
+  activityLevel: string;
+  dietaryRestrictions: string[];
+  allergens: string[];
+  customAllergens: string[];
+  preferredLocations: string[];
+  mealPreferences: {
+    breakfast: string;
+    lunch: string;
+    dinner: string;
+  };
+  healthGoals: string[];
+}
 
 export default function ProfileScreen() {
-  const [userProfile, setUserProfile] = useState({
+  const navigation = useNavigation();
+  const [userProfile, setUserProfile] = useState<UserProfile>({
     name: 'John Buckeye',
     age: '20',
     email: 'john.buckeye@osu.edu',
     year: 'sophomore',
     major: 'Computer Science',
+    weight: '165', // lbs
+    height: '5\'10&quot;', // feet and inches
     diningPlan: 'scarlet_14',
     calorieGoal: 2000,
     budget: 25,
@@ -209,7 +240,12 @@ export default function ProfileScreen() {
           </View>
           
           <Text style={styles.modalDescription}>
-            Set your daily food budget to help plan cost-effective meals
+            Set your daily food budget to help plan cost-effective meals.
+          </Text>
+          <Text style={styles.modalDescription}>
+            {(userProfile.diningPlan === 'scarlet_14' || userProfile.diningPlan === 'gray_10') 
+              ? 'Dining Dollars provide additional savings on campus purchases.'
+              : 'Choose between meal swipes or dollar budget.'}
           </Text>
           
           <View style={styles.budgetSliderContainer}>
@@ -385,6 +421,27 @@ export default function ProfileScreen() {
             </View>
             
             <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Weight (lbs)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={userProfile.weight}
+                onChangeText={(text) => setUserProfile({...userProfile, weight: text})}
+                placeholder="Enter your weight (e.g., 165)"
+                keyboardType="numeric"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Height</Text>
+              <TextInput
+                style={styles.textInput}
+                value={userProfile.height}
+                onChangeText={(text) => setUserProfile({...userProfile, height: text})}
+                placeholder="Enter your height (e.g., 5'10&quot;)"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Year at OSU</Text>
               <View style={styles.optionsGrid}>
                 {['freshman', 'sophomore', 'junior', 'senior', 'graduate'].map((year) => (
@@ -430,7 +487,10 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#FFFFFF', '#FFF5F5', '#FFE6E6', '#FFCCCC']}
+      style={styles.container}
+    >
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Enhanced Header */}
         <LinearGradient
@@ -538,6 +598,23 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </ProfileSection>
+
+        {/* Favorites Section */}
+        <ProfileSection title="My Favorites">
+          <View style={styles.favoritesContainer}>
+            <Text style={styles.favoritesSubtitle}>
+              Your saved favorite meals from the dining menu
+            </Text>
+            <TouchableOpacity 
+              style={styles.viewFavoritesButton}
+              onPress={() => navigation.navigate('MenuBrowser' as never)}
+            >
+              <Ionicons name="heart" size={20} color={COLORS.primary} />
+              <Text style={styles.viewFavoritesText}>View All Favorites</Text>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
         </ProfileSection>
 
@@ -787,7 +864,7 @@ export default function ProfileScreen() {
       <BudgetModal />
       <DiningPlanModal />
       <UserInfoModal />
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -1424,5 +1501,32 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginVertical: SPACING.md,
+  },
+  // Favorites section styles
+  favoritesContainer: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+  },
+  favoritesSubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  viewFavoritesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  viewFavoritesText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginHorizontal: SPACING.sm,
   },
 }); 

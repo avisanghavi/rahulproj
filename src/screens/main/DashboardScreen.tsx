@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, ANIMATIONS, OSU_BRANDING, TYPOGRAPHY } from '../../constants/theme';
 import { sampleMealPlans } from '../../data/mockData';
 import { TabParamList } from '../../types';
 
@@ -28,6 +28,10 @@ export default function DashboardScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnimation = useRef(new Animated.Value(1)).current;
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // User profile data (in a real app, this would come from context/redux/async storage)
+  const userName = 'John Buckeye';
+  const firstName = userName.split(' ')[0];
 
   useEffect(() => {
     // Update time every minute
@@ -62,21 +66,35 @@ export default function DashboardScreen() {
     const hour = currentTime.getHours();
     
     if (hour >= 5 && hour < 12) {
-      return { greeting: 'Good Morning!', subtitle: 'Ready for a nutritious day?', icon: 'sunny' };
+      return { greeting: `Good Morning, ${firstName}!`, subtitle: 'Ready for a nutritious day?', icon: 'sunny' };
     } else if (hour >= 12 && hour < 17) {
-      return { greeting: 'Good Afternoon!', subtitle: 'How about a healthy lunch?', icon: 'partly-sunny' };
+      return { greeting: `Good Afternoon, ${firstName}!`, subtitle: 'How about a healthy lunch?', icon: 'partly-sunny' };
     } else if (hour >= 17 && hour < 21) {
-      return { greeting: 'Good Evening!', subtitle: 'Time for dinner planning?', icon: 'cloudy' };
+      return { greeting: `Good Evening, ${firstName}!`, subtitle: 'Time for dinner planning?', icon: 'cloudy' };
     } else {
-      return { greeting: 'Good Night!', subtitle: 'Planning tomorrow\'s meals?', icon: 'moon' };
+      return { greeting: `Good Night, ${firstName}!`, subtitle: 'Planning tomorrow\'s meals?', icon: 'moon' };
     }
   };
 
   const { greeting, subtitle, icon } = getTimeBasedGreeting();
 
-  const handleOrderOnGrubhub = () => {
-    const grubhubUrl = 'https://www.grubhub.com/restaurant/ohio-state-university-dining/';
-    Linking.openURL(grubhubUrl);
+  const handleOrderOnGrubhub = async () => {
+    // Try to open Grubhub app first, then fall back to website
+    const grubhubAppUrl = 'grubhub://restaurant/ohio-state-university-dining/';
+    const grubhubWebUrl = 'https://www.grubhub.com/restaurant/ohio-state-university-dining/';
+    
+    try {
+      const canOpenApp = await Linking.canOpenURL(grubhubAppUrl);
+      if (canOpenApp) {
+        await Linking.openURL(grubhubAppUrl);
+      } else {
+        await Linking.openURL(grubhubWebUrl);
+      }
+    } catch (error) {
+      // Fallback to website if anything fails
+      console.log('Failed to open Grubhub app, opening website:', error);
+      await Linking.openURL(grubhubWebUrl);
+    }
   };
 
   const headerTranslateY = scrollY.interpolate({
@@ -141,16 +159,22 @@ export default function DashboardScreen() {
   }) => (
     <Animatable.View animation="fadeInUp" delay={delay} style={styles.actionCardContainer}>
       <TouchableOpacity 
-        style={styles.actionCard}
+        style={[
+          styles.actionCard,
+          gradient && styles.actionCardFeatured
+        ]}
         onPress={onPress}
         activeOpacity={0.8}
       >
         {gradient ? (
           <LinearGradient
-            colors={[COLORS.primary, '#AA0000']}
+            colors={COLORS.scarletGradient}
             style={styles.actionCardGradient}
           >
-            <Ionicons name={icon as any} size={32} color={COLORS.background} />
+            <View style={styles.featuredIconContainer}>
+              <Ionicons name={icon as any} size={32} color={COLORS.background} />
+              <Text style={styles.featuredBadge}>{OSU_BRANDING.brutus}</Text>
+            </View>
             <Text style={[styles.actionTitle, { color: COLORS.background }]}>{title}</Text>
             <Text style={[styles.actionSubtitle, { color: COLORS.background, opacity: 0.9 }]}>{subtitle}</Text>
           </LinearGradient>
@@ -161,6 +185,9 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.actionTitle}>{title}</Text>
             <Text style={styles.actionSubtitle}>{subtitle}</Text>
+            
+            {/* Add subtle OSU accent */}
+            <View style={styles.cardAccent} />
           </>
         )}
       </TouchableOpacity>
@@ -168,7 +195,10 @@ export default function DashboardScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#FFFFFF', '#FFF5F5', '#FFE6E6', '#FFCCCC']}
+      style={styles.container}
+    >
       {/* Animated Header */}
       <Animated.View
         style={[
@@ -180,23 +210,55 @@ export default function DashboardScreen() {
         ]}
       >
         <LinearGradient
-          colors={['#BB0000', '#990000', '#770000']}
+          colors={COLORS.scarletGradient}
           style={styles.header}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <Animatable.View animation="slideInDown" duration={800}>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+          {/* Brutus Background Pattern */}
+          <Animatable.View 
+            animation="pulse" 
+            iterationCount="infinite"
+            style={styles.brutusBackground}
+          >
+            <Text style={styles.brutusEmoji}>{OSU_BRANDING.brutus}</Text>
+            <Text style={styles.brutusEmoji}>{OSU_BRANDING.football}</Text>
+            <Text style={styles.brutusEmoji}>{OSU_BRANDING.stadium}</Text>
           </Animatable.View>
           
-          {/* Floating elements */}
+          <Animatable.View animation="slideInDown" duration={800}>
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greeting}>{greeting}</Text>
+              <View style={styles.greetingAccent} />
+            </View>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+            
+            {/* OSU Pride Badge */}
+            <Animatable.View 
+              animation="bounceIn" 
+              delay={1000}
+              style={styles.prideBadge}
+            >
+              <Text style={styles.prideBadgeText}>GO BUCKS! {OSU_BRANDING.football}</Text>
+            </Animatable.View>
+          </Animatable.View>
+          
+          {/* Enhanced Floating elements */}
           <Animatable.View 
             animation="fadeIn" 
             delay={600}
             style={styles.floatingIcon}
           >
-            <Ionicons name={icon as any} size={40} color="rgba(255,255,255,0.2)" />
+            <Ionicons name={icon as any} size={40} color="rgba(255,255,255,0.15)" />
+          </Animatable.View>
+          
+          {/* Campus Accents */}
+          <Animatable.View 
+            animation="slideInRight" 
+            delay={800}
+            style={styles.campusAccent}
+          >
+            <Text style={styles.campusEmoji}>{OSU_BRANDING.campus}</Text>
           </Animatable.View>
         </LinearGradient>
       </Animated.View>
@@ -304,32 +366,35 @@ export default function DashboardScreen() {
           </View>
         </Animatable.View>
 
-        {/* Enhanced Quick Actions */}
+        {/* Enhanced Quick Actions with OSU Spirit */}
         <Animatable.View animation="slideInUp" delay={600} style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.sectionHeaderEnhanced}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <Text style={styles.sectionEmoji}>{OSU_BRANDING.buckeye}</Text>
+          </View>
           
           <View style={styles.actionsGrid}>
             <ActionCard
               icon="restaurant"
               title="Menu"
-              subtitle="Browse dining options"
+              subtitle="Browse dining hall options"
               onPress={() => navigation.navigate('MenuBrowser')}
               delay={1800}
             />
             
             <ActionCard
               icon="chatbox-ellipses"
-              title="BrutusAI"
-              subtitle="Meal recommendations"
+              title="Ask Brutus"
+              subtitle="AI nutrition assistant"
               onPress={() => navigation.navigate('BrutusAI')}
               delay={1900}
-              gradient={true}
+              gradient={false}
             />
             
             <ActionCard
               icon="calendar"
               title="Cart & Plan"
-              subtitle="Manage your meals"
+              subtitle="Weekly meal planning"
               onPress={() => navigation.navigate('MealPlanner')}
               delay={2000}
             />
@@ -337,7 +402,7 @@ export default function DashboardScreen() {
             <ActionCard
               icon="person"
               title="Profile"
-              subtitle="Account settings"
+              subtitle="Buckeye preferences"
               onPress={() => navigation.navigate('Profile')}
               delay={2100}
             />
@@ -374,7 +439,7 @@ export default function DashboardScreen() {
         {/* Bottom padding for better scrolling */}
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -417,10 +482,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: 120, // Height of the header
+    marginTop: 100, // Reduced from 120 to make content more visible
   },
   section: {
     padding: SPACING.lg,
+    paddingTop: SPACING.xl, // Add extra top padding for better visibility
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -620,5 +686,89 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+  },
+  
+  // New OSU-themed styles
+  brutusBackground: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    flexDirection: 'row',
+    opacity: 0.1,
+    transform: [{ rotate: '15deg' }],
+  },
+  brutusEmoji: {
+    fontSize: 60,
+    marginHorizontal: SPACING.lg,
+  },
+  greetingContainer: {
+    alignItems: 'flex-start',
+  },
+  greetingAccent: {
+    width: 40,
+    height: 3,
+    backgroundColor: COLORS.gold,
+    borderRadius: 2,
+    marginTop: SPACING.xs,
+  },
+  prideBadge: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+  },
+  prideBadgeText: {
+    color: COLORS.textInverse,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  campusAccent: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    opacity: 0.3,
+  },
+  campusEmoji: {
+    fontSize: 32,
+  },
+  sectionHeaderEnhanced: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg,
+  },
+  sectionEmoji: {
+    fontSize: 24,
+    opacity: 0.8,
+  },
+  actionCardFeatured: {
+    ...SHADOWS.floating,
+    transform: [{ scale: 1.02 }],
+  },
+  featuredIconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    fontSize: 16,
+  },
+  cardAccent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: COLORS.primary,
+    borderBottomLeftRadius: BORDER_RADIUS.lg,
+    borderBottomRightRadius: BORDER_RADIUS.lg,
   },
 }); 

@@ -12,7 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, OSU_BRANDING } from '../../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { BrutusAIService, ChatMessage } from '../../services/openai';
 
 interface Message {
@@ -156,7 +157,11 @@ export default function BrutusAIScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LinearGradient
+      colors={['#FFFFFF', '#FFF5F5', '#FFE6E6', '#FFCCCC']}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -258,7 +263,8 @@ export default function BrutusAIScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
