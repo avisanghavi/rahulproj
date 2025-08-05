@@ -17,6 +17,7 @@ import MenuBrowserScreen from '../screens/main/MenuBrowserScreen';
 import BrutusAIScreen from '../screens/main/BrutusAIScreen';
 import MealPlannerScreen from '../screens/main/MealPlannerScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import AdminScreen from '../screens/main/AdminScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -66,6 +67,8 @@ function TabNavigator() {
               iconName = focused ? 'calendar' : 'calendar-outline';
             } else if (route.name === 'Profile') {
               iconName = focused ? 'person' : 'person-outline';
+            } else if (route.name === 'Admin') {
+              iconName = focused ? 'settings' : 'settings-outline';
             } else {
               iconName = 'ellipse-outline';
             }
@@ -115,6 +118,11 @@ function TabNavigator() {
         name="Profile" 
         component={ProfileScreen}
         options={{ title: 'Profile' }}
+      />
+      <Tab.Screen 
+        name="Admin" 
+        component={AdminScreen}
+        options={{ title: 'Admin' }}
       />
     </Tab.Navigator>
     {/* Red accent bar below tab bar */}

@@ -11,7 +11,60 @@ export interface User {
   createdAt: Date;
 }
 
-// Menu and food item types
+// Nutrislice raw data types
+export interface NutrisliceRawData {
+  nutrisliceId: string;
+  importedId: string;
+  menuName: string;
+  published: boolean;
+  menuTypes: string;
+  locations: string;
+  locationGroups: string;
+  replaceOverlappingMenuDays: boolean;
+  orderingEnabled: boolean;
+  menuStartDate: string;
+  menuEndDate: string;
+  repeatInterval: string;
+  servingDays: string;
+  menuItemDate: string;
+  dayOfWeek: string;
+  repeatType: string;
+  nutrisliceFoodId: string;
+  importedFoodId: string;
+  nutrisliceFoodName: string;
+  importedFoodName: string;
+  text: string;
+  isSectionTitle: boolean;
+  category: string;
+  price: number;
+  servingSizeAmount: number;
+  servingSizeUnit: string;
+  bold: boolean;
+  noLinebreak: boolean;
+  blankLine: boolean;
+  station: string;
+  isStationHeader: boolean;
+}
+
+// Enhanced nutrition information
+export interface NutritionInfo {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  saturatedFat?: number;
+  transFat?: number;
+  cholesterol?: number;
+  vitaminA?: number;
+  vitaminC?: number;
+  calcium?: number;
+  iron?: number;
+}
+
+// Enhanced menu item with Nutrislice data
 export interface MenuItem {
   id: string;
   name: string;
@@ -30,6 +83,15 @@ export interface MenuItem {
   description?: string;
   category: 'entree' | 'side' | 'dessert' | 'beverage' | 'snack';
   available: boolean;
+  // Nutrislice specific fields
+  nutrisliceId?: string;
+  servingSize?: string;
+  ingredients?: string[];
+  nutritionInfo?: NutritionInfo;
+  station?: string;
+  menuTypes?: string[];
+  servingDays?: string[];
+  allergensDetailed?: string[];
 }
 
 export interface DiningLocation {
@@ -38,6 +100,31 @@ export interface DiningLocation {
   address: string;
   hours: string;
   menu: MenuItem[];
+  // Nutrislice specific fields
+  nutrisliceId?: string;
+  locationGroups?: string[];
+  menuTypes?: string[];
+}
+
+// Restaurant data structure for Nutrislice integration
+export interface RestaurantData {
+  id: string;
+  name: string;
+  nutrisliceId: string;
+  locations: string[];
+  menuItems: NutrisliceRawData[];
+  lastUpdated: Date;
+}
+
+// Menu planning types
+export interface MenuPlan {
+  id: string;
+  restaurantId: string;
+  menuName: string;
+  startDate: Date;
+  endDate: Date;
+  servingDays: string[];
+  menuItems: MenuItem[];
 }
 
 // Meal planning types
@@ -83,6 +170,7 @@ export type RootStackParamList = {
   BrutusAI: undefined;
   MealPlanner: undefined;
   Profile: undefined;
+  Admin: undefined;
 };
 
 export type TabParamList = {
@@ -91,4 +179,5 @@ export type TabParamList = {
   BrutusAI: undefined;
   MealPlanner: undefined;
   Profile: undefined;
+  Admin: undefined;
 }; 

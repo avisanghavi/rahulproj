@@ -15,15 +15,15 @@ import {
   updateDoc
 } from 'firebase/firestore';
 
-// Firebase configuration
-// In a real app, these would be environment variables
+// Firebase configuration for BuckeyeGrub project
 const firebaseConfig = {
-  apiKey: "demo-api-key",
-  authDomain: "buckeyegrub-demo.firebaseapp.com",
-  projectId: "buckeyegrub-demo",
-  storageBucket: "buckeyegrub-demo.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456"
+  apiKey: "AIzaSyAh313s4IYHdvFETRmNKCEtfRqU2-C4NLM",
+  authDomain: "buckeyegrub.firebaseapp.com",
+  projectId: "buckeyegrub",
+  storageBucket: "buckeyegrub.firebasestorage.app",
+  messagingSenderId: "373603846754",
+  appId: "1:373603846754:web:b2e972ef26fb3f260b1f3b",
+  measurementId: "G-CWPXZHDBN6"
 };
 
 // Initialize Firebase

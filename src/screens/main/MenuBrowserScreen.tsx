@@ -17,8 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, OSU_BRANDING, TYPOGRAPHY } from '../../constants/theme';
 import { Keyboard } from 'react-native';
-import { allMenuItems, diningLocations } from '../../data/mockData';
 import { MenuItem, DiningLocation } from '../../types';
+import { getAllMenuItems, getDiningLocations, searchMenuItems } from '../../services/dataService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -34,6 +34,9 @@ export default function MenuBrowserScreen() {
   const [sortBy, setSortBy] = useState('name');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [cartItems, setCartItems] = useState<Set<string>>(new Set());
+  const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]);
+  const [diningLocations, setDiningLocations] = useState<DiningLocation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const searchAnimation = useRef(new Animated.Value(0)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
@@ -46,6 +49,27 @@ export default function MenuBrowserScreen() {
       useNativeDriver: false,
     }).start();
   }, [isSearchFocused]);
+
+  // Load data from Firebase
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [menuItems, locations] = await Promise.all([
+          getAllMenuItems(),
+          getDiningLocations(),
+        ]);
+        setAllMenuItems(menuItems);
+        setDiningLocations(locations);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Get unique restaurants from menu items
   const availableRestaurants = [...new Set(allMenuItems.map(item => item.location))];
