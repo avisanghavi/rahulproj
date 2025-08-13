@@ -26,6 +26,8 @@ import {
   createMenuPlans 
 } from './nutrislice';
 import { mapFirebaseDocToMenuItem, mapFirebaseDocsToMenuItems } from '../utils/dataMapping';
+import { APP_CONFIG } from '../constants';
+import mock from '../data/mockData';
 
 // Upload restaurant data to Firebase
 export const uploadRestaurantData = async (
@@ -81,6 +83,9 @@ export const uploadRestaurantData = async (
 // Get all dining locations
 export const getDiningLocations = async (): Promise<DiningLocation[]> => {
   try {
+    if (APP_CONFIG.USE_STATIC_DATA) {
+      return mock.diningLocations as DiningLocation[];
+    }
     console.log('Fetching dining locations from Firebase...');
     const querySnapshot = await getDocs(collection(db, 'diningLocations'));
     const locations: DiningLocation[] = [];
@@ -110,9 +115,32 @@ export const getDiningLocations = async (): Promise<DiningLocation[]> => {
   }
 };
 
+// Lightweight: get only dining location names (no menu fetches)
+export const getDiningLocationNames = async (): Promise<string[]> => {
+  try {
+    if (APP_CONFIG.USE_STATIC_DATA) {
+      return mock.diningLocations.map(d => d.name).sort((a, b) => a.localeCompare(b));
+    }
+    const querySnapshot = await getDocs(collection(db, 'diningLocations'));
+    return querySnapshot.docs
+      .map(d => {
+        const data = d.data();
+        return (data.name as string) || d.id;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  } catch (error) {
+    console.error('Error fetching dining location names:', error);
+    return [];
+  }
+};
+
 // Get dining location by ID
 export const getDiningLocation = async (locationId: string): Promise<DiningLocation | null> => {
   try {
+    if (APP_CONFIG.USE_STATIC_DATA) {
+      return (mock.diningLocations.find(d => d.id === locationId) || null) as DiningLocation | null;
+    }
     const docRef = doc(db, 'diningLocations', locationId);
     const docSnap = await getDoc(docRef);
     
@@ -135,6 +163,9 @@ export const getDiningLocation = async (locationId: string): Promise<DiningLocat
 // Get menu items by location
 export const getMenuItemsByLocation = async (locationName: string): Promise<MenuItem[]> => {
   try {
+    if (APP_CONFIG.USE_STATIC_DATA) {
+      return (mock.allMenuItems.filter(i => i.location === locationName)) as unknown as MenuItem[];
+    }
     console.log(`Fetching menu items for location: ${locationName}`);
     
     // Try both field names: 'location' and 'locations'
@@ -190,6 +221,9 @@ export const getMenuItemsByLocation = async (locationName: string): Promise<Menu
 // Get all menu items across all locations
 export const getAllMenuItems = async (): Promise<MenuItem[]> => {
   try {
+    if (APP_CONFIG.USE_STATIC_DATA) {
+      return mock.allMenuItems as unknown as MenuItem[];
+    }
     console.log('Fetching all menu items...');
     const querySnapshot = await getDocs(collection(db, 'menuItems'));
     console.log(`Found ${querySnapshot.docs.length} total menu items`);

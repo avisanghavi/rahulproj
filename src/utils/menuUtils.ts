@@ -1,28 +1,12 @@
-import { getDiningLocations, getMenuItemsByLocation, getAllMenuItems } from '../services/dataService';
+import { getMenuItemsByLocation, getAllMenuItems, getDiningLocationNames } from '../services/dataService';
+import type { MenuItem as BaseMenuItem } from '../types';
 
-export interface MenuItem {
-  id?: string;
+export type MenuItem = BaseMenuItem & {
   date?: string;
-  location: string;
   mealType?: string;
-  foodName: string;
-  category?: string;
   station?: string;
-  price: number;
-  servingSize?: string;
-  dayOfWeek?: string;
-  isHeader?: boolean;
   text?: string;
-  tags?: string[];
-  description?: string;
-  name?: string;
-  nutritionInfo?: any;
-  allergens?: string[];
-  calories?: number;
-  protein?: number;
-  carbs?: number;
-  fat?: number;
-}
+};
 
 export interface GroupedMenu {
   [mealType: string]: {
@@ -30,30 +14,40 @@ export interface GroupedMenu {
   };
 }
 
+// Simple in-memory cache for location names
+let cachedLocationNames: string[] | null = null;
+
+// Simple in-memory cache for menu items by location
+const menuItemsByLocationCache = new Map<string, MenuItem[]>();
+
 /**
- * Get menu items for a specific location and date
+ * Get menu items for a specific location and date with simple cache
  */
 export const getMenuByLocationAndDate = async (location: string, date?: string): Promise<MenuItem[]> => {
   try {
-    console.log(`Getting menu for location: ${location}, date: ${date || 'all dates'}`);
-    const menuItems = await getMenuItemsByLocation(location);
-    console.log(`Retrieved ${menuItems.length} menu items for ${location}`);
-    
-    // Filter by date if provided
-    let filteredItems = menuItems;
-    if (date) {
-      filteredItems = menuItems.filter(item => item.date === date);
-      console.log(`Filtered to ${filteredItems.length} items for date ${date}`);
+    const cached = menuItemsByLocationCache.get(location);
+    let menuItems: MenuItem[];
+
+    if (cached) {
+      menuItems = cached;
+    } else {
+      const fetched = await getMenuItemsByLocation(location);
+      // Ensure items conform to extended type
+      const normalized: MenuItem[] = fetched.map((item) => ({ ...item }));
+      menuItemsByLocationCache.set(location, normalized);
+      menuItems = normalized;
     }
-    
-    // Add tags and IDs to items
-    const processedItems = filteredItems.map(item => ({
+
+    // Filter by date if provided
+    const filteredItems = date ? menuItems.filter(item => item.date === date) : menuItems;
+
+    // Add tags and IDs to items if missing
+    const processedItems: MenuItem[] = filteredItems.map(item => ({
       ...item,
-      tags: extractDietaryTags(item.description || item.text || ''),
-      id: item.id || `${item.location}-${item.foodName}-${item.station || 'default'}`.replace(/\s+/g, '-').toLowerCase()
+      tags: item.tags && item.tags.length > 0 ? item.tags : extractDietaryTags(item.description || item.text || ''),
+      id: item.id || `${item.location}-${item.name}-${item.station || 'default'}`.replace(/\s+/g, '-').toLowerCase(),
     }));
-    
-    console.log(`Returning ${processedItems.length} processed menu items`);
+
     return processedItems;
   } catch (error) {
     console.error('Error getting menu by location and date:', error);
@@ -68,7 +62,6 @@ export const extractDietaryTags = (text: string): string[] => {
   const tags: string[] = [];
   const lowerText = text.toLowerCase();
   
-  // Common dietary tags
   if (lowerText.includes('vegetarian') || lowerText.includes('veggie')) tags.push('vegetarian');
   if (lowerText.includes('vegan')) tags.push('vegan');
   if (lowerText.includes('gluten-free') || lowerText.includes('gluten free')) tags.push('gluten-free');
@@ -103,18 +96,16 @@ export const groupByMealAndStation = (menuItems: MenuItem[]): GroupedMenu => {
 };
 
 /**
- * Get all unique locations from the menu data
+ * Get all unique locations (lightweight) with cache
  */
 export const getAllLocations = async (): Promise<string[]> => {
   try {
-    console.log('Getting all locations from Firebase...');
-    const locations = await getDiningLocations();
-    console.log(`Retrieved ${locations.length} locations from Firebase`);
-    
-    const locationNames = locations.map(location => location.name || location.id).sort();
-    console.log('Location names:', locationNames);
-    
-    return locationNames;
+    if (cachedLocationNames) {
+      return cachedLocationNames;
+    }
+    const names = await getDiningLocationNames();
+    cachedLocationNames = names;
+    return names;
   } catch (error) {
     console.error('Error getting all locations:', error);
     return [];
@@ -126,7 +117,7 @@ export const getAllLocations = async (): Promise<string[]> => {
  */
 export const getAvailableDates = async (location: string): Promise<string[]> => {
   try {
-    const menuItems = await getMenuItemsByLocation(location);
+    const menuItems = await getMenuItemsByLocation(location) as MenuItem[];
     const dates = new Set<string>();
     
     menuItems.forEach(item => {
@@ -142,23 +133,14 @@ export const getAvailableDates = async (location: string): Promise<string[]> => 
   }
 };
 
-/**
- * Format date as YYYY-MM-DD
- */
 export const formatDate = (date: Date): string => {
   return date.toISOString().split('T')[0];
 };
 
-/**
- * Get today's date in YYYY-MM-DD format
- */
 export const getTodayDate = (): string => {
   return formatDate(new Date());
 };
 
-/**
- * Filter menu items by dietary tags
- */
 export const filterByDietaryTags = (menuItems: MenuItem[], tags: string[]): MenuItem[] => {
   if (!tags.length) return menuItems;
   
@@ -168,9 +150,6 @@ export const filterByDietaryTags = (menuItems: MenuItem[], tags: string[]): Menu
   });
 };
 
-/**
- * Extract estimated nutrition from text
- */
 export const extractNutrition = (text: string) => {
   const nutrition = {
     calories: 0,

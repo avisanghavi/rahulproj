@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS, OSU_BRANDING } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
 
 interface UserProfile {
   name: string;
@@ -44,25 +45,27 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+  const { user, signOut } = useAuth();
+
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: 'John Buckeye',
-    age: '20',
-    email: 'john.buckeye@osu.edu',
-    year: 'sophomore',
-    major: 'Computer Science',
-    weight: '165', // lbs
-    height: '5\'10&quot;', // feet and inches
-    diningPlan: 'scarlet_14',
-    calorieGoal: 2000,
-    budget: 25,
+    name: user?.name || user?.email?.split('@')[0] || '',
+    age: user?.age ? String(user.age) : '',
+    email: user?.email || '',
+    year: (user?.yearAtOSU || 'sophomore').toLowerCase(),
+    major: user?.major || '',
+    weight: user?.weight ? String(user.weight) : '',
+    height: user?.height || '',
+    diningPlan: user?.diningPlan || '',
+    calorieGoal: user?.calorieGoal ?? 2000,
+    budget: user?.budget ?? 25,
     customBudget: '',
     dailySwipes: 2,
-    fitnessGoal: 'maintain',
-    activityLevel: 'moderate',
-    dietaryRestrictions: ['vegetarian'],
+    fitnessGoal: user?.fitnessGoals || 'maintain',
+    activityLevel: user?.activityLevel || 'moderate',
+    dietaryRestrictions: user?.dietaryRestrictions || [],
     allergens: [],
     customAllergens: [],
-    preferredLocations: ['Traditions at Scott', 'Union Market', 'Courtside Cafe'],
+    preferredLocations: [],
     mealPreferences: {
       breakfast: 'light',
       lunch: 'balanced',
@@ -70,6 +73,26 @@ export default function ProfileScreen() {
     },
     healthGoals: ['balanced-nutrition'],
   });
+
+  useEffect(() => {
+    if (!user) return;
+    setUserProfile(prev => ({
+      ...prev,
+      name: user.name || user.email || prev.name,
+      age: user.age ? String(user.age) : prev.age,
+      email: user.email || prev.email,
+      year: (user.yearAtOSU || prev.year || 'sophomore').toLowerCase(),
+      major: user.major || prev.major,
+      weight: user.weight ? String(user.weight) : prev.weight,
+      height: user.height || prev.height,
+      diningPlan: user.diningPlan || prev.diningPlan,
+      calorieGoal: user.calorieGoal ?? prev.calorieGoal,
+      budget: user.budget ?? prev.budget,
+      fitnessGoal: user.fitnessGoals || (prev.fitnessGoal || 'maintain'),
+      activityLevel: user.activityLevel || (prev.activityLevel || 'moderate'),
+      dietaryRestrictions: user.dietaryRestrictions || prev.dietaryRestrictions,
+    }));
+  }, [user?.id]);
 
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
@@ -851,7 +874,7 @@ export default function ProfileScreen() {
             subtitle="Version 1.0.0"
           />
           
-          <TouchableOpacity style={styles.logoutButton}>
+          <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
             <Ionicons name="log-out" size={20} color={COLORS.error} />
             <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>

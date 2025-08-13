@@ -1,19 +1,31 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
-import { onAuthStateChange, getUserProfile } from '../services/firebase';
-import { User } from '../types';
+import { User as AppUser } from '../types';
+import { onAuthStateChange as onSupabaseAuthStateChange, signInWithEmail, signUpWithEmail, signOut as supabaseSignOut, getProfile, upsertProfile } from '../services/supabase';
 
 interface AuthContextType {
-  user: User | null;
-  firebaseUser: FirebaseUser | null;
+  user: AppUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, userData?: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  markOnboardingComplete: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const normalizeFitnessGoal = (
+  val: unknown
+): 'lose_weight' | 'maintain' | 'gain_weight' | 'build_muscle' => {
+  if (
+    val === 'lose_weight' ||
+    val === 'maintain' ||
+    val === 'gain_weight' ||
+    val === 'build_muscle'
+  ) {
+    return val;
+  }
+  return 'maintain';
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -28,115 +40,106 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      
-      if (firebaseUser) {
-        // Fetch user profile from Firestore
-        const { data, error } = await getUserProfile(firebaseUser.uid);
-        if (data && !error) {
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: data.name || '',
-            calorieGoal: data.calorieGoal || 2000,
-            budget: data.budget || 25,
-            dietaryRestrictions: data.dietaryRestrictions || [],
-            fitnessGoals: data.fitnessGoals || 'maintain',
-            preferredDiningLocations: data.preferredDiningLocations || [],
-            createdAt: data.createdAt?.toDate() || new Date(),
+    const { data: sub } = onSupabaseAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        // Load or initialize profile
+        const { data: profile } = await getProfile(u.id);
+        if (!profile) {
+          await upsertProfile({
+            id: u.id,
+            email: u.email ?? null,
+            name: (u.user_metadata?.name as string) ?? null,
+            calorieGoal: 2000,
+            budget: 25,
+            dietaryRestrictions: [],
+            fitnessGoals: 'maintain',
+            preferredDiningLocations: [],
+            createdAt: new Date().toISOString(),
+            onboardingComplete: false,
           });
         }
+        const { data: profileAfter } = await getProfile(u.id);
+        setUser({
+          id: u.id,
+          email: u.email || '',
+          name: profileAfter?.name || (u.user_metadata?.name as string) || '',
+          calorieGoal: profileAfter?.calorieGoal ?? 2000,
+          budget: profileAfter?.budget ?? 25,
+          dietaryRestrictions: profileAfter?.dietaryRestrictions ?? [],
+          fitnessGoals: normalizeFitnessGoal(profileAfter?.fitnessGoals),
+          preferredDiningLocations: profileAfter?.preferredDiningLocations ?? [],
+          createdAt: profileAfter?.createdAt ? new Date(profileAfter.createdAt) : new Date(),
+          onboardingComplete: !!profileAfter?.onboardingComplete,
+          age: profileAfter?.age ?? undefined,
+          weight: profileAfter?.weight ?? undefined,
+          height: profileAfter?.height ?? undefined,
+          yearAtOSU: profileAfter?.yearAtOSU ?? undefined,
+          major: profileAfter?.major ?? undefined,
+          diningPlan: profileAfter?.diningPlan ?? undefined,
+          activityLevel: profileAfter?.activityLevel ?? undefined,
+        });
       } else {
         setUser(null);
       }
-      
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const handleSignIn = async (email: string, password: string) => {
     try {
-      const { signIn: firebaseSignIn } = await import('../services/firebase');
-      const { user: fbUser, error } = await firebaseSignIn(email, password);
-      
-      if (error) {
-        return { success: false, error };
-      }
-      
+      const { error } = await signInWithEmail(email, password);
+      if (error) return { success: false, error: error.message };
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return { success: false, error: message };
     }
   };
 
-  const signUp = async (email: string, password: string, userData: Partial<User>) => {
+  const handleSignUp = async (email: string, password: string, userData?: Partial<AppUser>) => {
     try {
-      const { signUp: firebaseSignUp } = await import('../services/firebase');
-      const { user: fbUser, error } = await firebaseSignUp(email, password, {
-        name: userData.name || '',
-        calorieGoal: userData.calorieGoal || 2000,
-        budget: userData.budget || 25,
-        dietaryRestrictions: userData.dietaryRestrictions || [],
-        fitnessGoals: userData.fitnessGoals || 'maintain',
-        preferredDiningLocations: userData.preferredDiningLocations || [],
-      });
-      
-      if (error) {
-        return { success: false, error };
+      const { error } = await signUpWithEmail(email, password);
+      if (error) return { success: false, error: error.message };
+      // Attempt to sign in immediately after sign-up (works when email confirmations are disabled)
+      const signin = await signInWithEmail(email, password);
+      if (signin.error) {
+        return { success: true }; // Account created; may require email verification depending on settings
       }
-      
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return { success: false, error: message };
     }
   };
 
-  const signOut = async () => {
+  const handleSignOut = async () => {
     try {
-      const { logOut } = await import('../services/firebase');
-      await logOut();
-    } catch (error) {
-      console.error('Sign out error:', error);
+      await supabaseSignOut();
+    } catch (e) {
+      // no-op
     }
   };
 
-  const updateProfile = async (data: Partial<User>) => {
-    if (!firebaseUser) {
-      return { success: false, error: 'No user logged in' };
-    }
-
-    try {
-      const { updateUserProfile } = await import('../services/firebase');
-      const { error } = await updateUserProfile(firebaseUser.uid, data);
-      
-      if (error) {
-        return { success: false, error };
-      }
-
-      // Update local state
-      setUser(prev => prev ? { ...prev, ...data } : null);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+  const markOnboardingComplete = () => {
+    setUser(prev => (prev ? { ...prev, onboardingComplete: true } : prev));
   };
 
   const value: AuthContextType = {
     user,
-    firebaseUser,
     loading,
-    signIn,
-    signUp,
-    signOut,
-    updateProfile,
+    signIn: handleSignIn,
+    signUp: handleSignUp,
+    signOut: handleSignOut,
+    markOnboardingComplete,
   };
 
   return (

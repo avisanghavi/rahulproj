@@ -9,6 +9,15 @@ export interface User {
   fitnessGoals: 'lose_weight' | 'maintain' | 'gain_weight' | 'build_muscle';
   preferredDiningLocations: string[];
   createdAt: Date;
+  onboardingComplete?: boolean;
+  // Optional extended profile fields
+  age?: number;
+  weight?: number;
+  height?: string;
+  yearAtOSU?: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate';
+  major?: string;
+  diningPlan?: string;
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'very_active' | 'extremely_active';
 }
 
 // Nutrislice raw data types
@@ -163,14 +172,7 @@ export interface ChatSession {
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
-  Login: undefined;
-  Register: undefined;
-  Dashboard: undefined;
-  MenuBrowser: undefined;
-  BrutusAI: undefined;
-  MealPlanner: undefined;
-  Profile: undefined;
-  Admin: undefined;
+  Onboarding: undefined;
 };
 
 export type TabParamList = {

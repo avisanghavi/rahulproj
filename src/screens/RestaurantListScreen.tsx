@@ -5,45 +5,38 @@ import {
   StyleSheet, 
   FlatList, 
   TouchableOpacity, 
-  Image, 
   StatusBar,
   ActivityIndicator,
   Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllLocations, getTodayDate } from '../utils/menuUtils';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, BORDER_RADIUS } from '../constants/theme';
 import DebugInfo from '../components/DebugInfo';
 
-// Restaurant images mapping (you can replace with actual images)
-const RESTAURANT_IMAGES: {[key: string]: any} = {
-  'Traditions at Scott': require('../../assets/images/restaurants/traditions-scott.jpg'),
-  'Traditions at Kennedy': require('../../assets/images/restaurants/traditions-kennedy.jpg'),
-  'Marketplace on Neil': require('../../assets/images/restaurants/marketplace.jpg'),
-  'Union Market': require('../../assets/images/restaurants/union-market.jpg'),
-  'Mirror Lake Eatery': require('../../assets/images/restaurants/mirror-lake.jpg'),
-  // Add more mappings as needed
-  'default': require('../../assets/images/restaurants/default.jpg'),
-};
+// Restaurant images mapping removed since assets are not available
 
 interface RestaurantCardProps {
   location: string;
   onPress: () => void;
 }
 
+// Minimal navigation type with only the route we use here
+type RestaurantListNavProp = NativeStackNavigationProp<{
+  MenuScreen: { location: string; date: string };
+}>;
+
 const RestaurantCard: React.FC<RestaurantCardProps> = ({ location, onPress }) => {
-  // Get image or use default
-  const image = RESTAURANT_IMAGES[location] || RESTAURANT_IMAGES.default;
-  
   return (
     <TouchableOpacity 
       style={styles.card}
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <Image source={image} style={styles.cardImage} />
+      <View style={styles.cardPlaceholder} />
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.8)']}
         style={styles.cardGradient}
@@ -68,25 +61,24 @@ const RestaurantListScreen = () => {
   const [locations, setLocations] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigation = useNavigation();
+  const navigation = useNavigation<RestaurantListNavProp>();
+
+  const loadLocations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const allLocations = await getAllLocations();
+      setLocations(allLocations);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      setError('Failed to load restaurants. Please try again.');
+      Alert.alert('Error', 'Failed to load restaurants. Please check your internet connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Load all locations
-    const loadLocations = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const allLocations = await getAllLocations();
-        setLocations(allLocations);
-      } catch (error) {
-        console.error('Error loading locations:', error);
-        setError('Failed to load restaurants. Please try again.');
-        Alert.alert('Error', 'Failed to load restaurants. Please check your internet connection and try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadLocations();
   }, []);
 
@@ -111,7 +103,7 @@ const RestaurantListScreen = () => {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
+        <TouchableOpacity style={styles.retryButton} onPress={loadLocations}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -139,6 +131,10 @@ const RestaurantListScreen = () => {
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="restaurant-outline" size={48} color={COLORS.textLight} />
@@ -235,10 +231,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...SHADOWS.medium,
   },
-  cardImage: {
+  cardPlaceholder: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    backgroundColor: COLORS.secondaryLight,
   },
   cardGradient: {
     position: 'absolute',
